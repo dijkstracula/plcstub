@@ -1,0 +1,4 @@
+*.o
+libplctag.a
+*.dSYM
+test/test_*
