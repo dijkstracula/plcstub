@@ -14,4 +14,5 @@ libplctag.a: $(patsubst %.c,%.o,$(SRCS))
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm src/*.o libplctag.a
+	rm src/*.o libplctag.a || true
+	make -C test clean
