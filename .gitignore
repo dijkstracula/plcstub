@@ -2,3 +2,4 @@
 libplctag.a
 *.dSYM
 test/test_*
+.vscode/

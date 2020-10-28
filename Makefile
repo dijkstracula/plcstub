@@ -1,18 +1,18 @@
 CC=gcc
-CFLAGS=-Wall -fsanitize=address -g -I="./include" -std=c11
+CFLAGS=-Wall -fsanitize=address -g -I"./include" -std=c11 -DDEBUG
 SRCS=$(wildcard src/*.c)
 TARGET=libplctag.a
 
-.PHONY: clean all
-
 all: libplctag.a
+	make -C test
     
 libplctag.a: $(patsubst %.c,%.o,$(SRCS))
 	ar rcs $(TARGET) $?
 
-%.o: $(SRCS)
+%.o: src/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
+.PHONY: clean
 clean:
-	rm src/*.o libplctag.a || true
 	make -C test clean
+	rm src/*.o libplctag.a || true

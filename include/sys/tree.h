@@ -323,7 +323,7 @@ struct {								\
 	struct type *rbe_parent;	/* parent element */		\
 }
 
-#define RB_LEFT(lm, field)		(elm)->field.rbe_left
+#define RB_LEFT(elm, field)		    (elm)->field.rbe_left
 #define RB_RIGHT(elm, field)		(elm)->field.rbe_right
 
 /*

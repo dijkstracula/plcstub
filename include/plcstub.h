@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <sys/tree.h>
 
+#define NTAGS 10
+
 #ifdef __APPLE__
 typedef uintptr_t __uintptr_t;
 #endif
@@ -11,9 +13,10 @@ typedef uintptr_t __uintptr_t;
 typedef void (*tag_callback_func)(int32_t tag_id, int event, int status);
 
 struct tag {
-    RB_ENTRY(tag) rb_entry; 
+    RB_ENTRY(tag)
+    rb_entry;
     int tag_id;
-    const char *name; /* TODO: TAG_BASE_STRUCT doesn't contain a name: where does the name live? */
+    const char* name; /* TODO: TAG_BASE_STRUCT doesn't contain a name: where does the name live? */
     tag_callback_func cb;
 };
 
