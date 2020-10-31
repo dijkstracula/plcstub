@@ -13,6 +13,8 @@
 #include "debug.h"
 #include "plcstub.h"
 
+#include "libplctag.h"
+
 static int
 tagcmp(struct tag* lhs, struct tag* rhs);
 
@@ -47,13 +49,17 @@ plcstub_init()
         goto done;
     }
 
+    /* Upgrade to a writer lock and initialise. */
     if ((ret = pthread_rwlock_unlock(&plcstub_mtx)) != 0) {
         err(1, "pthread_rwlock_unlock");
     }
-
-    /* Upgrade to a writer lock and initialise. */
     if ((ret = pthread_rwlock_wrlock(&plcstub_mtx)) != 0) {
         err(1, "pthread_rwlock_wrlock");
+    }
+
+    /* Did somebody beat us to initing? If so, lucky us. */
+    if (plcstub_inited) {
+        goto done;
     }
 
     pdebug(PLCTAG_DEBUG_DETAIL, "Initing");
@@ -76,10 +82,7 @@ plcstub_init()
         RB_INSERT(tag_tree_t, &tag_tree, tag);
     }
 
-    /* Did somebody beat us to initing? If so, lucky us. */
-    if (plcstub_inited) {
-        goto done;
-    }
+    plcstub_inited = true;
 
 done:
     if ((ret = pthread_rwlock_unlock(&plcstub_mtx)) != 0) {
@@ -95,6 +98,13 @@ tagcmp(struct tag* lhs, struct tag* rhs)
 
 /************************ Public API ************************/
 
+int
+plc_tag_get_debug_level()
+{
+    plcstub_init();
+    return get_debug_level();
+}
+
 void
 plc_tag_set_debug_level(int level)
 {
@@ -103,24 +113,74 @@ plc_tag_set_debug_level(int level)
 }
 
 int
-plc_tag_get_debug_level()
+plc_tag_set_int32(int32_t tag, int offset, int value)
 {
+    int ret;
+
+    struct tag find, *t;
+
+    /* TODO: how is offset meant to be used within a tag? */
+
     plcstub_init();
-    return get_debug_level();
-}
+
+    if (pthread_rwlock_wrlock(&plcstub_mtx)) {
+        err(1, "pthread_rwlock_wrlock");
+    }
+
+    find.tag_id = tag;
+    t = RB_FIND(tag_tree_t, &tag_tree, &find);
+    if (!t) {
+        pdebug(PLCTAG_DEBUG_WARN, "Unknown tag %d", tag);
+        ret = PLCTAG_ERR_NOT_FOUND;
+        goto done;
+    }
+
+    if (t->cb) {
+        pdebug(PLCTAG_DEBUG_SPEW,
+            "Calling cb for %d with PLCTAG_WRITE_EVENT_STARTED", tag);
+        t->cb(tag, PLCTAG_EVENT_WRITE_STARTED, PLCTAG_STATUS_OK);
+    }
+
+    t->val = value;
+
+    if (t->cb) {
+        pdebug(PLCTAG_DEBUG_SPEW,
+            "Calling cb for %d with PLCTAG_WRITE_EVENT_COMPLETED", tag);
+        t->cb(tag, PLCTAG_EVENT_WRITE_COMPLETED, PLCTAG_STATUS_OK);
+    }
+
+done:
+    if (pthread_rwlock_unlock(&plcstub_mtx)) {
+        err(1, "pthread_rwlock_unlock");
+    }
+    return ret;
+};
 
 int
 plc_tag_register_callback(int32_t tag_id, tag_callback_func cb)
 {
-    int ret;
+    int ret = PLCTAG_STATUS_OK;
+    struct tag find, *t;
 
-    if ((ret = pthread_rwlock_wrlock(&plcstub_mtx)) != 0) {
+    plcstub_init();
+
+    if (pthread_rwlock_wrlock(&plcstub_mtx)) {
         err(1, "pthread_rwlock_wrlock");
     }
 
-    if ((ret = pthread_rwlock_unlock(&plcstub_mtx)) != 0) {
+    find.tag_id = tag_id;
+    t = RB_FIND(tag_tree_t, &tag_tree, &find);
+    if (!t) {
+        pdebug(PLCTAG_DEBUG_WARN, "Unknown tag %d", tag_id);
+        ret = PLCTAG_ERR_NOT_FOUND;
+        goto done;
+    }
+    t->cb = cb;
+
+done:
+    if (pthread_rwlock_unlock(&plcstub_mtx)) {
         err(1, "pthread_rwlock_unlock");
     }
 
-    return 0;
+    return ret;
 }

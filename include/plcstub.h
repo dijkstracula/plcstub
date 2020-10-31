@@ -18,6 +18,8 @@ struct tag {
     int tag_id;
     const char* name; /* TODO: TAG_BASE_STRUCT doesn't contain a name: where does the name live? */
     tag_callback_func cb;
+
+    uint32_t val; /* TODO: tagged union */
 };
 
 #endif
