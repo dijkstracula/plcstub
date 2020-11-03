@@ -35,54 +35,49 @@
 
 #include <stdint.h>
 
-
-
 /* library internal status. */
-#define PLCTAG_STATUS_PENDING       (1)
-#define PLCTAG_STATUS_OK            (0)
+#define PLCTAG_STATUS_PENDING (1)
+#define PLCTAG_STATUS_OK (0)
 
-#define PLCTAG_ERR_ABORT            (-1)
-#define PLCTAG_ERR_BAD_CONFIG       (-2)
-#define PLCTAG_ERR_BAD_CONNECTION   (-3)
-#define PLCTAG_ERR_BAD_DATA         (-4)
-#define PLCTAG_ERR_BAD_DEVICE       (-5)
-#define PLCTAG_ERR_BAD_GATEWAY      (-6)
-#define PLCTAG_ERR_BAD_PARAM        (-7)
-#define PLCTAG_ERR_BAD_REPLY        (-8)
-#define PLCTAG_ERR_BAD_STATUS       (-9)
-#define PLCTAG_ERR_CLOSE            (-10)
-#define PLCTAG_ERR_CREATE           (-11)
-#define PLCTAG_ERR_DUPLICATE        (-12)
-#define PLCTAG_ERR_ENCODE           (-13)
-#define PLCTAG_ERR_MUTEX_DESTROY    (-14)
-#define PLCTAG_ERR_MUTEX_INIT       (-15)
-#define PLCTAG_ERR_MUTEX_LOCK       (-16)
-#define PLCTAG_ERR_MUTEX_UNLOCK     (-17)
-#define PLCTAG_ERR_NOT_ALLOWED      (-18)
-#define PLCTAG_ERR_NOT_FOUND        (-19)
-#define PLCTAG_ERR_NOT_IMPLEMENTED  (-20)
-#define PLCTAG_ERR_NO_DATA          (-21)
-#define PLCTAG_ERR_NO_MATCH         (-22)
-#define PLCTAG_ERR_NO_MEM           (-23)
-#define PLCTAG_ERR_NO_RESOURCES     (-24)
-#define PLCTAG_ERR_NULL_PTR         (-25)
-#define PLCTAG_ERR_OPEN             (-26)
-#define PLCTAG_ERR_OUT_OF_BOUNDS    (-27)
-#define PLCTAG_ERR_READ             (-28)
-#define PLCTAG_ERR_REMOTE_ERR       (-29)
-#define PLCTAG_ERR_THREAD_CREATE    (-30)
-#define PLCTAG_ERR_THREAD_JOIN      (-31)
-#define PLCTAG_ERR_TIMEOUT          (-32)
-#define PLCTAG_ERR_TOO_LARGE        (-33)
-#define PLCTAG_ERR_TOO_SMALL        (-34)
-#define PLCTAG_ERR_UNSUPPORTED      (-35)
-#define PLCTAG_ERR_WINSOCK          (-36)
-#define PLCTAG_ERR_WRITE            (-37)
-#define PLCTAG_ERR_PARTIAL          (-38)
-#define PLCTAG_ERR_BUSY             (-39)
-
-
-
+#define PLCTAG_ERR_ABORT (-1)
+#define PLCTAG_ERR_BAD_CONFIG (-2)
+#define PLCTAG_ERR_BAD_CONNECTION (-3)
+#define PLCTAG_ERR_BAD_DATA (-4)
+#define PLCTAG_ERR_BAD_DEVICE (-5)
+#define PLCTAG_ERR_BAD_GATEWAY (-6)
+#define PLCTAG_ERR_BAD_PARAM (-7)
+#define PLCTAG_ERR_BAD_REPLY (-8)
+#define PLCTAG_ERR_BAD_STATUS (-9)
+#define PLCTAG_ERR_CLOSE (-10)
+#define PLCTAG_ERR_CREATE (-11)
+#define PLCTAG_ERR_DUPLICATE (-12)
+#define PLCTAG_ERR_ENCODE (-13)
+#define PLCTAG_ERR_MUTEX_DESTROY (-14)
+#define PLCTAG_ERR_MUTEX_INIT (-15)
+#define PLCTAG_ERR_MUTEX_LOCK (-16)
+#define PLCTAG_ERR_MUTEX_UNLOCK (-17)
+#define PLCTAG_ERR_NOT_ALLOWED (-18)
+#define PLCTAG_ERR_NOT_FOUND (-19)
+#define PLCTAG_ERR_NOT_IMPLEMENTED (-20)
+#define PLCTAG_ERR_NO_DATA (-21)
+#define PLCTAG_ERR_NO_MATCH (-22)
+#define PLCTAG_ERR_NO_MEM (-23)
+#define PLCTAG_ERR_NO_RESOURCES (-24)
+#define PLCTAG_ERR_NULL_PTR (-25)
+#define PLCTAG_ERR_OPEN (-26)
+#define PLCTAG_ERR_OUT_OF_BOUNDS (-27)
+#define PLCTAG_ERR_READ (-28)
+#define PLCTAG_ERR_REMOTE_ERR (-29)
+#define PLCTAG_ERR_THREAD_CREATE (-30)
+#define PLCTAG_ERR_THREAD_JOIN (-31)
+#define PLCTAG_ERR_TIMEOUT (-32)
+#define PLCTAG_ERR_TOO_LARGE (-33)
+#define PLCTAG_ERR_TOO_SMALL (-34)
+#define PLCTAG_ERR_UNSUPPORTED (-35)
+#define PLCTAG_ERR_WINSOCK (-36)
+#define PLCTAG_ERR_WRITE (-37)
+#define PLCTAG_ERR_PARTIAL (-38)
+#define PLCTAG_ERR_BUSY (-39)
 
 /*
  * helper function for errors.
@@ -91,8 +86,8 @@
  * for printing.
  */
 
-extern const char *plc_tag_decode_error(int err);
-
+extern const char*
+plc_tag_decode_error(int err);
 
 /*
  * Set the debug level.
@@ -102,16 +97,15 @@ extern const char *plc_tag_decode_error(int err);
  * of information.   Input values not defined below will be ignored.
  */
 
-#define PLCTAG_DEBUG_NONE      (0)
-#define PLCTAG_DEBUG_ERROR     (1)
-#define PLCTAG_DEBUG_WARN      (2)
-#define PLCTAG_DEBUG_INFO      (3)
-#define PLCTAG_DEBUG_DETAIL    (4)
-#define PLCTAG_DEBUG_SPEW      (5)
+#define PLCTAG_DEBUG_NONE (0)
+#define PLCTAG_DEBUG_ERROR (1)
+#define PLCTAG_DEBUG_WARN (2)
+#define PLCTAG_DEBUG_INFO (3)
+#define PLCTAG_DEBUG_DETAIL (4)
+#define PLCTAG_DEBUG_SPEW (5)
 
-extern void plc_tag_set_debug_level(int debug_level);
-
-
+extern void
+plc_tag_set_debug_level(int debug_level);
 
 /*
  * Check that the library supports the required API version.
@@ -135,10 +129,8 @@ extern void plc_tag_set_debug_level(int debug_level);
  *
  */
 
-extern int plc_tag_check_lib_version(int req_major, int req_minor, int req_patch);
-
-
-
+extern int
+plc_tag_check_lib_version(int req_major, int req_minor, int req_patch);
 
 /*
  * tag functions
@@ -168,9 +160,8 @@ extern int plc_tag_check_lib_version(int req_major, int req_minor, int req_patch
  * errors.
  */
 
-extern int32_t plc_tag_create(const char *attrib_str, int timeout);
-
-
+extern int32_t
+plc_tag_create(const char* attrib_str, int timeout);
 
 /*
  * plc_tag_shutdown
@@ -188,9 +179,8 @@ extern int32_t plc_tag_create(const char *attrib_str, int timeout);
  * from working.
  */
 
-extern void plc_tag_shutdown(void);
-
-
+extern void
+plc_tag_shutdown(void);
 
 /*
  * plc_tag_register_callback
@@ -228,22 +218,18 @@ extern void plc_tag_shutdown(void);
  * If all is successful, the function will return PLCTAG_STATUS_OK.
  */
 
-#define PLCTAG_EVENT_READ_STARTED       (1)
-#define PLCTAG_EVENT_READ_COMPLETED     (2)
+#define PLCTAG_EVENT_READ_STARTED (1)
+#define PLCTAG_EVENT_READ_COMPLETED (2)
 
-#define PLCTAG_EVENT_WRITE_STARTED      (3)
-#define PLCTAG_EVENT_WRITE_COMPLETED    (4)
+#define PLCTAG_EVENT_WRITE_STARTED (3)
+#define PLCTAG_EVENT_WRITE_COMPLETED (4)
 
-#define PLCTAG_EVENT_ABORTED            (5)
+#define PLCTAG_EVENT_ABORTED (5)
 
-#define PLCTAG_EVENT_DESTROYED          (6)
+#define PLCTAG_EVENT_DESTROYED (6)
 
-extern int plc_tag_register_callback(int32_t tag_id, void (*tag_callback_func)(int32_t tag_id, int event, int status));
-
-
-
-
-
+extern int
+plc_tag_register_callback(int32_t tag_id, void (*tag_callback_func)(int32_t tag_id, int event, int status));
 
 /*
  * plc_tag_unregister_callback
@@ -256,9 +242,8 @@ extern int plc_tag_register_callback(int32_t tag_id, void (*tag_callback_func)(i
  * An error of PLCTAG_ERR_NOT_FOUND is returned if there was no registered callback.
  */
 
-extern int plc_tag_unregister_callback(int32_t tag_id);
-
-
+extern int
+plc_tag_unregister_callback(int32_t tag_id);
 
 /*
  * plc_tag_register_logger
@@ -280,9 +265,8 @@ extern int plc_tag_unregister_callback(int32_t tag_id);
  * If all is successful, the function will return PLCTAG_STATUS_OK.
  */
 
-extern int plc_tag_register_logger(void (*log_callback_func)(int32_t tag_id, int debug_level, const char *message));
-
-
+extern int
+plc_tag_register_logger(void (*log_callback_func)(int32_t tag_id, int debug_level, const char* message));
 
 /*
  * plc_tag_unregister_logger
@@ -295,9 +279,8 @@ extern int plc_tag_register_logger(void (*log_callback_func)(int32_t tag_id, int
  * An error of PLCTAG_ERR_NOT_FOUND is returned if there was no registered callback.
  */
 
-extern int plc_tag_unregister_logger(void);
-
-
+extern int
+plc_tag_unregister_logger(void);
 
 /*
  * plc_tag_lock
@@ -312,10 +295,8 @@ extern int plc_tag_unregister_logger(void);
  * followed by a call to plc_tag_unlock when you have everything you need from the tag.
  */
 
-
-extern int plc_tag_lock(int32_t tag);
-
-
+extern int
+plc_tag_lock(int32_t tag);
 
 /*
  * plc_tag_unlock
@@ -324,11 +305,8 @@ extern int plc_tag_lock(int32_t tag);
  * tag.
  */
 
-extern int plc_tag_unlock(int32_t tag);
-
-
-
-
+extern int
+plc_tag_unlock(int32_t tag);
 
 /*
  * plc_tag_abort
@@ -342,10 +320,8 @@ extern int plc_tag_unlock(int32_t tag);
  *
  * This is a function provided by the underlying protocol implementation.
  */
-extern int plc_tag_abort(int32_t tag);
-
-
-
+extern int
+plc_tag_abort(int32_t tag);
 
 /*
  * plc_tag_destroy
@@ -355,12 +331,8 @@ extern int plc_tag_abort(int32_t tag);
  *
  * This is a function provided by the underlying protocol implementation.
  */
-extern int plc_tag_destroy(int32_t tag);
-
-
-
-
-
+extern int
+plc_tag_destroy(int32_t tag);
 
 /*
  * plc_tag_read
@@ -372,10 +344,8 @@ extern int plc_tag_destroy(int32_t tag);
  *
  * This is a function provided by the underlying protocol implementation.
  */
-extern int plc_tag_read(int32_t tag, int timeout);
-
-
-
+extern int
+plc_tag_read(int32_t tag, int timeout);
 
 /*
  * plc_tag_status
@@ -386,12 +356,8 @@ extern int plc_tag_read(int32_t tag, int timeout);
  *
  * This is a function provided by the underlying protocol implementation.
  */
-extern int plc_tag_status(int32_t tag);
-
-
-
-
-
+extern int
+plc_tag_status(int32_t tag);
 
 /*
  * plc_tag_write
@@ -404,58 +370,75 @@ extern int plc_tag_status(int32_t tag);
  *
  * This is a function provided by the underlying protocol implementation.
  */
-extern int plc_tag_write(int32_t tag, int timeout);
-
-
-
+extern int
+plc_tag_write(int32_t tag, int timeout);
 
 /*
  * Tag data accessors.
  */
 
+extern int
+plc_tag_get_int_attribute(int32_t tag, const char* attrib_name, int default_value);
+extern int
+plc_tag_set_int_attribute(int32_t tag, const char* attrib_name, int new_value);
 
-extern int plc_tag_get_int_attribute(int32_t tag, const char *attrib_name, int default_value);
-extern int plc_tag_set_int_attribute(int32_t tag, const char *attrib_name, int new_value);
+extern int
+plc_tag_get_size(int32_t tag);
 
-extern int plc_tag_get_size(int32_t tag);
+extern int
+plc_tag_get_bit(int32_t tag, int offset_bit);
+extern int
+plc_tag_set_bit(int32_t tag, int offset_bit, int val);
 
-extern int plc_tag_get_bit(int32_t tag, int offset_bit);
-extern int plc_tag_set_bit(int32_t tag, int offset_bit, int val);
+extern uint64_t
+plc_tag_get_uint64(int32_t tag, int offset);
+extern int
+plc_tag_set_uint64(int32_t tag, int offset, uint64_t val);
 
-extern uint64_t plc_tag_get_uint64(int32_t tag, int offset);
-extern int plc_tag_set_uint64(int32_t tag, int offset, uint64_t val);
+extern int64_t
+plc_tag_get_int64(int32_t tag, int offset);
+extern int
+plc_tag_set_int64(int32_t, int offset, int64_t val);
 
-extern int64_t plc_tag_get_int64(int32_t tag, int offset);
-extern int plc_tag_set_int64(int32_t, int offset, int64_t val);
+extern uint32_t
+plc_tag_get_uint32(int32_t tag, int offset);
+extern int
+plc_tag_set_uint32(int32_t tag, int offset, uint32_t val);
 
+extern int32_t
+plc_tag_get_int32(int32_t tag, int offset);
+extern int
+plc_tag_set_int32(int32_t, int offset, int32_t val);
 
-extern uint32_t plc_tag_get_uint32(int32_t tag, int offset);
-extern int plc_tag_set_uint32(int32_t tag, int offset, uint32_t val);
+extern uint16_t
+plc_tag_get_uint16(int32_t tag, int offset);
+extern int
+plc_tag_set_uint16(int32_t tag, int offset, uint16_t val);
 
-extern int32_t plc_tag_get_int32(int32_t tag, int offset);
-extern int plc_tag_set_int32(int32_t, int offset, int32_t val);
+extern int16_t
+plc_tag_get_int16(int32_t tag, int offset);
+extern int
+plc_tag_set_int16(int32_t, int offset, int16_t val);
 
+extern uint8_t
+plc_tag_get_uint8(int32_t tag, int offset);
+extern int
+plc_tag_set_uint8(int32_t tag, int offset, uint8_t val);
 
-extern uint16_t plc_tag_get_uint16(int32_t tag, int offset);
-extern int plc_tag_set_uint16(int32_t tag, int offset, uint16_t val);
+extern int8_t
+plc_tag_get_int8(int32_t tag, int offset);
+extern int
+plc_tag_set_int8(int32_t, int offset, int8_t val);
 
-extern int16_t plc_tag_get_int16(int32_t tag, int offset);
-extern int plc_tag_set_int16(int32_t, int offset, int16_t val);
+extern double
+plc_tag_get_float64(int32_t tag, int offset);
+extern int
+plc_tag_set_float64(int32_t tag, int offset, double val);
 
-
-extern uint8_t plc_tag_get_uint8(int32_t tag, int offset);
-extern int plc_tag_set_uint8(int32_t tag, int offset, uint8_t val);
-
-extern int8_t plc_tag_get_int8(int32_t tag, int offset);
-extern int plc_tag_set_int8(int32_t, int offset, int8_t val);
-
-
-extern double plc_tag_get_float64(int32_t tag, int offset);
-extern int plc_tag_set_float64(int32_t tag, int offset, double val);
-
-extern float plc_tag_get_float32(int32_t tag, int offset);
-extern int plc_tag_set_float32(int32_t tag, int offset, float val);
-
+extern float
+plc_tag_get_float32(int32_t tag, int offset);
+extern int
+plc_tag_set_float32(int32_t tag, int offset, float val);
 
 #ifdef __cplusplus
 }

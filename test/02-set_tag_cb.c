@@ -19,4 +19,6 @@ main(int argc, char** argv)
     plc_tag_register_callback(TAGID, callback);
     plc_tag_set_int32(TAGID, 0, 0);
     plc_tag_set_int32(TAGID, 0, 1);
+
+    plc_tag_set_int32(42, 0, 1);
 }
