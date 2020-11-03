@@ -82,10 +82,10 @@ plcstub_init()
         }
         tag->name = name;
         tag->tag_id = i;
-        tag->tag_type = TAG_INT;
+        tag->elem_count = 1;
+        tag->elem_size = sizeof(uint16_t);
 
-        tag->size_bytes = sizeof(uint16_t);
-        tag->data = calloc(1, tag->size_bytes);
+        tag->data = calloc(1, tag->elem_count * tag->elem_size);
         if (!tag->data) {
             err(1, "calloc");
         }
@@ -100,6 +100,19 @@ done:
     if ((ret = pthread_rwlock_unlock(&plcstub_mtx)) != 0) {
         err(1, "pthread_rwlock_unlock");
     }
+}
+
+/* Looks up a tag by ID; returns NULL if no such tag exists. 
+ * 
+ * Assumes that the plcstub mutex is held, either in read or
+ * in write mode.
+ */
+static struct tag*
+plcstub_tag_lookup(int32_t tag_id)
+{
+    struct tag find;
+    find.tag_id = tag_id;
+    return RB_FIND(tag_tree_t, &tag_tree, &find);
 }
 
 static int
@@ -123,7 +136,7 @@ plc_tag_create(const char* attrib, int timeout)
     int ret = PLCTAG_STATUS_OK;
     char *kv_ctx, *kv;
     char* kv_sep = "&";
-    struct tag* t;
+    struct tag* tag;
 
     /* There are three attributes that we are interested in at the moment:
      * 1) name: the name of the tag
@@ -198,13 +211,31 @@ plc_tag_create(const char* attrib, int timeout)
         err(1, "pthread_rwlock_wrlock");
     }
 
-    /* From here on out, early exits need to jump to the 'unlock' label. */
+    /* TODO: special case for the empty tree?. */
+    tag = RB_MAX(tag_tree_t, &tag_tree);
+    if (tag == NULL) {
+        ret = 1;
+    } else {
+        ret = tag->tag_id + 1;
+    }
 
-    /* TODO: actually allocate the tag in the rb tree. */
-    t = RB_MAX(tag_tree_t, &tag_tree);
-    ret = t->tag_id + 1;
+    tag = malloc(sizeof(struct tag));
+    if (tag == NULL) {
+        err(1, "malloc");
+    }
+    asprintf(&tag->name, "DUMMY_AQUA_DATA_%s", name);
+    if (tag->name == NULL) {
+        err(1, "asnprintf");
+    }
+    tag->tag_id = ret;
+    tag->elem_count = elem_count;
+    tag->elem_size = elem_size;
 
-    /*unlock: */
+    tag->data = calloc(tag->elem_count, tag->elem_size);
+    if (tag->data == NULL) {
+        err(1, "calloc");
+    }
+
     if (pthread_rwlock_unlock(&plcstub_mtx)) {
         err(1, "pthread_rwlock_unlock");
     }
@@ -225,7 +256,7 @@ plc_tag_read(int32_t tag_id, int timeout)
     (void)(timeout);
 
     int ret = PLCTAG_STATUS_OK;
-    struct tag find, *t;
+    struct tag* t;
 
     plcstub_init();
 
@@ -238,8 +269,7 @@ plc_tag_read(int32_t tag_id, int timeout)
         err(1, "pthread_rwlock_dock");
     }
 
-    find.tag_id = tag_id;
-    t = RB_FIND(tag_tree_t, &tag_tree, &find);
+    t = plcstub_tag_lookup(tag_id);
     if (!t) {
         pdebug(PLCTAG_DEBUG_WARN, "Unknown tag %d", tag_id);
         ret = PLCTAG_ERR_NOT_FOUND;
@@ -263,6 +293,34 @@ done:
     return ret;
 }
 
+int
+plc_tag_register_callback(int32_t tag_id, tag_callback_func cb)
+{
+    int ret = PLCTAG_STATUS_OK;
+    struct tag* t;
+
+    plcstub_init();
+
+    if (pthread_rwlock_wrlock(&plcstub_mtx)) {
+        err(1, "pthread_rwlock_wrlock");
+    }
+
+    t = plcstub_tag_lookup(tag_id);
+    if (!t) {
+        pdebug(PLCTAG_DEBUG_WARN, "Unknown tag %d", tag_id);
+        ret = PLCTAG_ERR_NOT_FOUND;
+        goto done;
+    }
+    t->cb = cb;
+
+done:
+    if (pthread_rwlock_unlock(&plcstub_mtx)) {
+        err(1, "pthread_rwlock_unlock");
+    }
+
+    return ret;
+}
+
 void
 plc_tag_set_debug_level(int level)
 {
@@ -275,7 +333,7 @@ plc_tag_set_int32(int32_t tag, int offset, int value)
 {
     int ret;
 
-    struct tag find, *t;
+    struct tag* t;
 
     /* TODO: how is offset meant to be used within a tag? */
 
@@ -285,8 +343,7 @@ plc_tag_set_int32(int32_t tag, int offset, int value)
         err(1, "pthread_rwlock_wrlock");
     }
 
-    find.tag_id = tag;
-    t = RB_FIND(tag_tree_t, &tag_tree, &find);
+    t = plcstub_tag_lookup(tag);
     if (!t) {
         pdebug(PLCTAG_DEBUG_WARN, "Unknown tag %d", tag);
         ret = PLCTAG_ERR_NOT_FOUND;
@@ -313,34 +370,34 @@ done:
         err(1, "pthread_rwlock_unlock");
     }
     return ret;
-};
+}
 
 int
-plc_tag_register_callback(int32_t tag_id, tag_callback_func cb)
+plc_tag_status(int32_t tag)
 {
     int ret = PLCTAG_STATUS_OK;
-    struct tag find, *t;
+    struct tag* t;
 
-    plcstub_init();
-
-    if (pthread_rwlock_wrlock(&plcstub_mtx)) {
-        err(1, "pthread_rwlock_wrlock");
+    if (pthread_rwlock_rdlock(&plcstub_mtx)) {
+        err(1, "pthread_rwlock_rdlock");
     }
 
-    find.tag_id = tag_id;
-    t = RB_FIND(tag_tree_t, &tag_tree, &find);
+    t = plcstub_tag_lookup(tag);
     if (!t) {
-        pdebug(PLCTAG_DEBUG_WARN, "Unknown tag %d", tag_id);
+        pdebug(PLCTAG_DEBUG_WARN, "Unknown tag %d", tag);
         ret = PLCTAG_ERR_NOT_FOUND;
         goto done;
     }
-    t->cb = cb;
+
+    /* For the stub, let's always just treat the tag status as 
+     * okay.  If we stub out in-flight reads and writes later on,
+     * this would change.
+     */
 
 done:
     if (pthread_rwlock_unlock(&plcstub_mtx)) {
         err(1, "pthread_rwlock_unlock");
     }
-
     return ret;
 }
 

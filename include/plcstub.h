@@ -13,6 +13,7 @@ typedef uintptr_t __uintptr_t;
 typedef void (*tag_callback_func)(int32_t tag_id, int event, int status);
 
 /* https://literature.rockwellautomation.com/idc/groups/literature/documents/pm/1756-pm020_-en-p.pdf */
+/* TODO: plc_tag_create()'s attribute list consumes a size, not a type.  Do we need this? */
 enum tag_type {
     TAG_BOOL,
     TAG_SINT,
@@ -26,12 +27,13 @@ struct tag {
     RB_ENTRY(tag)
     rb_entry;
     int tag_id;
-    const char* name; /* TODO: TAG_BASE_STRUCT doesn't contain a name: where does the name live? */
+    char* name; /* TODO: TAG_BASE_STRUCT doesn't contain a name: where does the name live? */
     tag_callback_func cb;
 
-    enum tag_type tag_type;
+    size_t elem_size;
+    size_t elem_count;
 
-    size_t size_bytes;
+    /* of length (elem_size * elem_count) */
     char* data;
 };
 

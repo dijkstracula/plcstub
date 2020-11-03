@@ -19,3 +19,5 @@ directory.
 
 There are some test programs that link against the stub `libplctag.a` in the 
 `tests/` directory.
+
+For now, just run the tests with `for prog in $(find test -type f -perm +u+x); do $prog; done` and we will make this better shortly.
