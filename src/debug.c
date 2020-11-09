@@ -69,7 +69,7 @@ pdebug_impl(const char* func, const char* file, int line, int level, const char*
 }
 
 int
-get_debug_level()
+debug_get_level()
 {
     int level, ret;
 
@@ -87,7 +87,7 @@ get_debug_level()
 }
 
 void
-set_debug_level(int level)
+debug_set_level(int level)
 {
     int ret;
 

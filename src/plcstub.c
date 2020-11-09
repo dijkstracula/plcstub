@@ -13,121 +13,25 @@
 
 #include "debug.h"
 #include "plcstub.h"
-
 #include "libplctag.h"
-
-static int
-tagcmp(struct tag* lhs, struct tag* rhs);
-
-/* Ensures mutual exclusion on all global plcstub data structures. */
-static pthread_rwlock_t plcstub_mtx = PTHREAD_RWLOCK_INITIALIZER;
-
-/* Tag storage and lookup. */
-
-RB_HEAD(tag_tree_t, tag)
-tag_tree = RB_INITIALIZER(&tag_tree);
-RB_PROTOTYPE(tag_tree_t, tag, rb_entry, tagcmp);
-RB_GENERATE(tag_tree_t, tag, rb_entry, tagcmp);
-
-static bool plcstub_inited = false; /* Have we called plcstub_init() yet? */
-
-/* invoked the first time the user of the library tries to do anything
- * with the the PLC.
- * 
- * Assumes that plcstub_mtx is NOT held.
- */
-static void
-plcstub_init()
-{
-    int ret;
-
-    /* Check to see if we've inited.  If so, nothing to do. */
-    if ((ret = pthread_rwlock_rdlock(&plcstub_mtx)) != 0) {
-        err(1, "pthread_rwlock_rdlock");
-    }
-
-    if (plcstub_inited) {
-        goto done;
-    }
-
-    /* Upgrade to a writer lock and initialise. */
-    if ((ret = pthread_rwlock_unlock(&plcstub_mtx)) != 0) {
-        err(1, "pthread_rwlock_unlock");
-    }
-    if ((ret = pthread_rwlock_wrlock(&plcstub_mtx)) != 0) {
-        err(1, "pthread_rwlock_wrlock");
-    }
-
-    /* Did somebody beat us to initing? If so, lucky us. */
-    if (plcstub_inited) {
-        goto done;
-    }
-
-    pdebug(PLCTAG_DEBUG_DETAIL, "Initing");
-
-    /* TODO: this should be done as part of a helper that
-     * plc_tag_create can call.
-     */
-    for (int i = 0; i < NTAGS; ++i) {
-        char* name;
-        struct tag* tag;
-
-        asprintf(&name, "DUMMY_AQUA_DATA_%d", i);
-        if (name == NULL) {
-            err(1, "asnprintf");
-        }
-        tag = malloc(sizeof(struct tag));
-        if (tag == NULL) {
-            err(1, "malloc");
-        }
-        tag->name = name;
-        tag->tag_id = i;
-        tag->elem_count = 1;
-        tag->elem_size = sizeof(uint16_t);
-
-        tag->data = calloc(1, tag->elem_count * tag->elem_size);
-        if (!tag->data) {
-            err(1, "calloc");
-        }
-        *(uint16_t*)(tag->data) = i;
-
-        RB_INSERT(tag_tree_t, &tag_tree, tag);
-    }
-
-    plcstub_inited = true;
-
-done:
-    if ((ret = pthread_rwlock_unlock(&plcstub_mtx)) != 0) {
-        err(1, "pthread_rwlock_unlock");
-    }
-}
-
-/* Looks up a tag by ID; returns NULL if no such tag exists. 
- * 
- * Assumes that the plcstub mutex is held, either in read or
- * in write mode.
- */
-static struct tag*
-plcstub_tag_lookup(int32_t tag_id)
-{
-    struct tag find;
-    find.tag_id = tag_id;
-    return RB_FIND(tag_tree_t, &tag_tree, &find);
-}
-
-static int
-tagcmp(struct tag* lhs, struct tag* rhs)
-{
-    return (lhs->tag_id < rhs->tag_id ? -1 : (lhs->tag_id > rhs->tag_id));
-}
+#include "lock_utils.h"
+#include "tagtree.h"
 
 /************************ Public API ************************/
+
+
+int
+plc_tag_check_lib_version(int req_major, int req_minor, int req_patch) {
+    (void)(req_major);
+    (void)(req_minor);
+    (void)(req_patch);
+    return true;
+}
 
 int
 plc_tag_get_debug_level()
 {
-    plcstub_init();
-    return get_debug_level();
+    return debug_get_level();
 }
 
 int

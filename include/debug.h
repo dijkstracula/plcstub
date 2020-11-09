@@ -15,14 +15,14 @@ pdebug_impl(const char* func, const char* file, int line, int level, const char*
 
 #define pdebug(level, ...)                                                       \
     do {                                                                         \
-        if ((level) <= get_debug_level()) {                                      \
+        if ((level) <= debug_get_level()) {                                      \
             pdebug_impl(__FUNCTION__, __FILE__, __LINE__, (level), __VA_ARGS__); \
         }                                                                        \
     } while (0)
 
 int
-get_debug_level(void);
+debug_get_level(void);
 void
-set_debug_level(int level);
+debug_set_level(int level);
 
 #endif
