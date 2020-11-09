@@ -23,18 +23,13 @@ enum tag_type {
     TAG_LINT
 };
 
-struct tag {
-    RB_ENTRY(tag)
-    rb_entry;
-    int tag_id;
-    char* name; /* TODO: TAG_BASE_STRUCT doesn't contain a name: where does the name live? */
-    tag_callback_func cb;
-
-    size_t elem_size;
-    size_t elem_count;
-
-    /* of length (elem_size * elem_count) */
-    char* data;
-};
+struct tag_t {
+    uint32_t id;
+    uint16_t type;
+    uint16_t elem_size;
+    uint32_t array_dims[3];
+    uint16_t length;
+    char data[0];
+} __attribute__((packed));
 
 #endif
