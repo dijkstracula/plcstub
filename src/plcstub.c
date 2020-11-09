@@ -108,10 +108,7 @@ plc_tag_create(const char* attrib, int timeout)
         err(1, "tag_tree_create_node");
     }
 
-    tag = malloc(sizeof(struct tag));
-    if (tag == NULL) {
-        err(1, "malloc");
-    }
+    MTX_LOCK(&tag->mtx);
     asprintf(&tag->name, "DUMMY_AQUA_DATA_%s", name);
     if (tag->name == NULL) {
         err(1, "asnprintf");
@@ -124,10 +121,7 @@ plc_tag_create(const char* attrib, int timeout)
     if (tag->data == NULL) {
         err(1, "calloc");
     }
-
-    if (pthread_rwlock_unlock(&plcstub_mtx)) {
-        err(1, "pthread_rwlock_unlock");
-    }
+    MTX_UNLOCK(&tag->mtx);
 
 done:
     free(str);
@@ -179,10 +173,9 @@ plc_tag_register_callback(int32_t tag_id, tag_callback_func cb)
         return PLCTAG_ERR_NOT_FOUND;
     }
 
-done:
-    if (pthread_rwlock_unlock(&plcstub_mtx)) {
-        err(1, "pthread_rwlock_unlock");
-    }
+    MTX_LOCK(&t->mtx);
+    t->cb = cb;
+    MTX_UNLOCK(&t->mtx);
 
     return PLCTAG_STATUS_OK;
 }
@@ -203,6 +196,8 @@ plc_tag_set_int32(int32_t tag, int offset, int value)
         pdebug(PLCTAG_DEBUG_WARN, "Unknown tag %d", tag);
         return PLCTAG_ERR_NOT_FOUND;
     }
+
+    MTX_LOCK(&t->mtx);
 
     if (t->cb) {
         pdebug(PLCTAG_DEBUG_SPEW,
