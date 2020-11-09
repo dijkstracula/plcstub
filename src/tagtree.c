@@ -62,6 +62,7 @@ tag_tree_create_node()
 
     RW_WRLOCK(&tag_tree_mtx);
 
+    tag->tag_id = id; 
     RB_INSERT(tag_tree_t, &tag_tree, tag);
     tree_size++;
 
@@ -84,7 +85,7 @@ tag_tree_init()
     RW_RDLOCK(&tag_tree_mtx);
 
     if (tag_tree_inited) {
-        goto done;
+        return;
     }
 
     /* Upgrade to a writer lock and initialise. */
@@ -93,10 +94,12 @@ tag_tree_init()
 
     /* Did somebody beat us to initing? If so, lucky us. */
     if (tag_tree_inited) {
-        goto done;
+        return;
     }
 
     pdebug(PLCTAG_DEBUG_DETAIL, "Initing");
+    tag_tree_inited = true;
+    RW_UNLOCK(&tag_tree_mtx);
 
     /* TODO: this should be done as part of a helper that
      * plc_tag_create can call.
@@ -104,7 +107,7 @@ tag_tree_init()
     for (int i = 0; i < NTAGS; ++i) {
         char* name, *data;
         size_t elem_count = 1;
-        size_t elem_size = sizeof(uint16_t);
+        size_t elem_size = sizeof(uint32_t);
 
         struct tag_tree_node* tag = tag_tree_create_node();
 
@@ -125,13 +128,7 @@ tag_tree_init()
         tag->elem_count = elem_count;
         tag->elem_size = elem_size;
         MTX_UNLOCK(&tag->mtx);
-
     }
-
-    tag_tree_inited = true;
-
-done:
-    RW_UNLOCK(&tag_tree_mtx);
 }
 
 /* Looks up a tag by ID; returns NULL if no such tag exists. 

@@ -4,11 +4,12 @@
 #include <err.h>
 #include <pthread.h>
 
-#define MTX_OP(op, mtx_p) \
-    do {                  \
-        if (op(mtx_p)) {  \
-            err(1, #op);  \
-        }                 \
+#define MTX_OP(op, mtx_p)                        \
+    do {                                         \
+        int ret = op(mtx_p);                     \
+        if (ret) {                               \
+            errx(1, "%s returned %d", #op, ret); \
+        }                                        \
     } while (0)
 
 #define MTX_UNLOCK(mtx_p) MTX_OP(pthread_mutex_unlock, mtx_p)
