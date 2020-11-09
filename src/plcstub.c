@@ -17,6 +17,127 @@
 #include "lock_utils.h"
 #include "tagtree.h"
 
+typedef void(getter_fn)(char *buf, int offset, void *val);
+typedef void(setter_fn)(char *buf, int offset, void *val);
+
+/* Accessor / mutator macros */
+
+#define GETTER(name, type)                                                  \
+static void                                                                 \
+plcstub_##name##_getter_cb(char *buf, int offset, void *val) {              \
+    type *p = (type *)(buf + offset);                                       \
+    *(type *)(val) = *p;                                                    \
+}                                                                           \
+type                                                                        \
+plc_tag_get_##name (int32_t tag, int offset) {                              \
+    type val;                                                               \
+    plcstub_get_impl(tag, offset, &val, plcstub_##name##_getter_cb);        \
+    return val;                                                             \
+} 
+
+#define SETTER(name, type)                                                  \
+static void                                                                 \
+plcstub_##name##_setter_cb(char *buf, int offset, void *val) {              \
+    type *p = (type *)(buf + offset);                                       \
+    *p = *(type *)(val);                                                    \
+}                                                                           \
+int                                                                         \
+plc_tag_set_##name (int32_t tag, int offset, type val) {                    \
+    return plcstub_set_impl(tag, offset, &val, plcstub_##name##_setter_cb); \
+}
+
+static int
+plcstub_get_impl(int32_t tag, int offset, void* buf, getter_fn fn)
+{
+    struct tag_tree_node* t;
+
+    t = tag_tree_lookup(tag);
+    if (!t) {
+        pdebug(PLCTAG_DEBUG_WARN, "Unknown tag %d", tag);
+        return PLCTAG_ERR_NOT_FOUND;
+    }
+
+    /* TODO: I'm not thrilled about holding the lock through the course of all
+     * these callbacks, especially until we know the overhead of doing golang<->native
+     * interop.  Maybe it's better to make a defensive copy where possible? */
+    MTX_LOCK(&t->mtx);
+
+    if (t->cb) {
+        pdebug(PLCTAG_DEBUG_SPEW,
+            "Calling cb for %d with PLCTAG_READ_EVENT_STARTED", tag);
+        t->cb(tag, PLCTAG_EVENT_READ_STARTED, PLCTAG_STATUS_OK);
+    }
+
+    if (offset >= t->elem_count * t->elem_size) {
+        pdebug(PLCTAG_DEBUG_WARN, 
+            "Offset %d out of bounds of [0..%d)", offset, t->elem_count * t->elem_size);
+        if (t->cb) {
+            pdebug(PLCTAG_DEBUG_SPEW,
+                "Calling cb for %d with PLCTAG_EVENT_ABORTED", tag);
+            t->cb(tag, PLCTAG_EVENT_ABORTED, PLCTAG_ERR_BAD_PARAM);
+        }
+        return PLCTAG_ERR_BAD_PARAM;
+    }
+
+    fn(t->data, offset, buf);
+
+    if (t->cb) {
+        pdebug(PLCTAG_DEBUG_SPEW,
+            "Calling cb for %d with PLCTAG_READ_EVENT_COMPLETED", tag);
+        t->cb(tag, PLCTAG_EVENT_READ_COMPLETED, PLCTAG_STATUS_OK);
+    }
+
+    MTX_UNLOCK(&t->mtx);
+
+    return PLCTAG_STATUS_OK;
+}
+
+static int
+plcstub_set_impl(int32_t tag, int offset, void *value, setter_fn fn)
+{
+    struct tag_tree_node* t;
+
+    t = tag_tree_lookup(tag);
+    if (!t) {
+        pdebug(PLCTAG_DEBUG_WARN, "Unknown tag %d", tag);
+        return PLCTAG_ERR_NOT_FOUND;
+    }
+
+    /* TODO: I'm not thrilled about holding the lock through the course of all
+     * these callbacks, especially until we know the overhead of doing golang<->native
+     * interop.  Maybe it's better to make a defensive copy where possible? */
+    MTX_LOCK(&t->mtx);
+
+    if (t->cb) {
+        pdebug(PLCTAG_DEBUG_SPEW,
+            "Calling cb for %d with PLCTAG_WRITE_EVENT_STARTED", tag);
+        t->cb(tag, PLCTAG_EVENT_WRITE_STARTED, PLCTAG_STATUS_OK);
+    }
+
+    if (offset >= t->elem_count * t->elem_size) {
+        pdebug(PLCTAG_DEBUG_WARN, 
+            "Offset %d out of bounds of [0..%d)", offset, t->elem_count * t->elem_size);
+        if (t->cb) {
+            pdebug(PLCTAG_DEBUG_SPEW,
+                "Calling cb for %d with PLCTAG_EVENT_ABORTED", tag);
+            t->cb(tag, PLCTAG_EVENT_ABORTED, PLCTAG_ERR_BAD_PARAM);
+        }
+        return PLCTAG_ERR_BAD_PARAM;
+    }
+
+    fn(t->data, offset, &value);
+
+    if (t->cb) {
+        pdebug(PLCTAG_DEBUG_SPEW,
+            "Calling cb for %d with PLCTAG_WRITE_EVENT_COMPLETED", tag);
+        t->cb(tag, PLCTAG_EVENT_WRITE_COMPLETED, PLCTAG_STATUS_OK);
+    }
+
+    MTX_UNLOCK(&t->mtx);
+
+    return PLCTAG_STATUS_OK;
+}
+
 /************************ Public API ************************/
 
 
@@ -187,39 +308,6 @@ plc_tag_set_debug_level(int level)
 }
 
 int
-plc_tag_set_int32(int32_t tag, int offset, int value)
-{
-    struct tag_tree_node* t;
-
-    t = tag_tree_lookup(tag);
-    if (!t) {
-        pdebug(PLCTAG_DEBUG_WARN, "Unknown tag %d", tag);
-        return PLCTAG_ERR_NOT_FOUND;
-    }
-
-    MTX_LOCK(&t->mtx);
-
-    if (t->cb) {
-        pdebug(PLCTAG_DEBUG_SPEW,
-            "Calling cb for %d with PLCTAG_WRITE_EVENT_STARTED", tag);
-        t->cb(tag, PLCTAG_EVENT_WRITE_STARTED, PLCTAG_STATUS_OK);
-    }
-
-    // TODO
-    //t->val = value;
-
-    if (t->cb) {
-        pdebug(PLCTAG_DEBUG_SPEW,
-            "Calling cb for %d with PLCTAG_WRITE_EVENT_COMPLETED", tag);
-        t->cb(tag, PLCTAG_EVENT_WRITE_COMPLETED, PLCTAG_STATUS_OK);
-    }
-
-    MTX_UNLOCK(&t->mtx);
-
-    return PLCTAG_STATUS_OK;
-}
-
-int
 plc_tag_status(int32_t tag)
 {
     struct tag_tree_node* t;
@@ -242,3 +330,29 @@ plc_tag_unregister_callback(int32_t tag_id)
 {
     return plc_tag_register_callback(tag_id, NULL);
 }
+
+/* macro expansions */
+
+GETTER(bit, int);
+GETTER(uint64, uint64_t);
+GETTER(int64, int64_t);
+GETTER(uint32, uint32_t);
+GETTER(int32, int32_t);
+GETTER(uint16, uint16_t);
+GETTER(int16, int16_t);
+GETTER(uint8, uint8_t);
+GETTER(int8, int8_t);
+GETTER(float64, double);
+GETTER(float32, float);
+
+SETTER(bit, int);
+SETTER(uint64, uint64_t);
+SETTER(int64, int64_t);
+SETTER(uint32, uint32_t);
+SETTER(int32, int32_t);
+SETTER(uint16, uint16_t);
+SETTER(int16, int16_t);
+SETTER(uint8, uint8_t);
+SETTER(int8, int8_t);
+SETTER(float64, double);
+SETTER(float32, float);

@@ -28,8 +28,11 @@ tagcmp(struct tag_tree_node* lhs, struct tag_tree_node* rhs);
 
 RB_HEAD(tag_tree_t, tag_tree_node)
 tag_tree = RB_INITIALIZER(&tag_tree);
+static size_t tree_size = 0;
+
 RB_PROTOTYPE(tag_tree_t, tag_tree_node, rb_entry, tagcmp);
 RB_GENERATE(tag_tree_t, tag_tree_node, rb_entry, tagcmp);
+
 
 
 /* Allocates and initialises a fresh tag in the tag tree. */
@@ -42,7 +45,7 @@ tag_tree_create_node()
     /* TODO: special case for the empty tree?. */
     tag = RB_MAX(tag_tree_t, &tag_tree);
     if (tag == NULL) {
-        id = 1;
+        id = 2; /* id=1 = "@tags" */
     } else {
         id = tag->tag_id + 1;
     }
@@ -56,6 +59,13 @@ tag_tree_create_node()
     if (pthread_mutex_init(&tag->mtx, NULL)) {
         err(1, "pthread_mutex_init");
     }
+
+    RW_WRLOCK(&tag_tree_mtx);
+
+    RB_INSERT(tag_tree_t, &tag_tree, tag);
+    tree_size++;
+
+    RW_UNLOCK(&tag_tree_mtx);
 
     return tag;
 }
