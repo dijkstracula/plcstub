@@ -25,6 +25,7 @@ typedef void(setter_fn)(char *buf, int offset, void *val);
 #define GETTER(name, type)                                                  \
 static void                                                                 \
 plcstub_##name##_getter_cb(char *buf, int offset, void *val) {              \
+    pdebug(PLCTAG_DEBUG_SPEW, "reading at offset %d", offset);              \
     type *p = (type *)(buf + offset);                                       \
     *(type *)(val) = *p;                                                    \
 }                                                                           \
@@ -38,6 +39,7 @@ plc_tag_get_##name (int32_t tag, int offset) {                              \
 #define SETTER(name, type)                                                  \
 static void                                                                 \
 plcstub_##name##_setter_cb(char *buf, int offset, void *val) {              \
+    pdebug(PLCTAG_DEBUG_SPEW, "writing at offset %d", offset);              \
     type *p = (type *)(buf + offset);                                       \
     *p = *(type *)(val);                                                    \
 }                                                                           \
@@ -218,7 +220,10 @@ plc_tag_create(const char* attrib, int timeout)
             if (name != NULL) {
                 pdebug(PLCTAG_DEBUG_WARN, "Overwriting attribute %s", "name");
             }
-            name = val; /* We will strdup name when we insert a new node into the rb tree. */
+            name = strdup(val);
+            if (name == NULL) {
+                err(1, "strdup");
+            }
         } else if (strcmp("elem_size", key) == 0) {
             if (elem_size > 0) {
                 pdebug(PLCTAG_DEBUG_WARN, "Overwriting attribute %s", "elem_size");
@@ -244,11 +249,7 @@ plc_tag_create(const char* attrib, int timeout)
     }
 
     MTX_LOCK(&tag->mtx);
-    asprintf(&tag->name, "DUMMY_AQUA_DATA_%s", name);
-    if (tag->name == NULL) {
-        err(1, "asnprintf");
-    }
-    tag->tag_id = ret;
+    tag->name = name;
     tag->elem_count = elem_count;
     tag->elem_size = elem_size;
 
@@ -256,6 +257,9 @@ plc_tag_create(const char* attrib, int timeout)
     if (tag->data == NULL) {
         err(1, "calloc");
     }
+
+    ret = tag->tag_id;
+
     MTX_UNLOCK(&tag->mtx);
 
 done:

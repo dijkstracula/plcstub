@@ -17,7 +17,9 @@ struct tag_tree_node {
     size_t elem_size;
     size_t elem_count;
 
-    /* of length (elem_size * elem_count) */
+    /* of length (elem_size * elem_count) 
+     * TODO: can this buffer ever be resized?  If not, let's make it a char[0] and save
+     * an allocation. */
     char* data;
 };
 

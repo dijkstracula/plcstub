@@ -4,12 +4,13 @@
 #include <err.h>
 #include <pthread.h>
 
-#define MTX_OP(op, mtx_p)                        \
-    do {                                         \
-        int ret = op(mtx_p);                     \
-        if (ret) {                               \
-            errx(1, "%s returned %d", #op, ret); \
-        }                                        \
+#define MTX_OP(op, mtx_p)                                                     \
+    do {                                                                      \
+        pdebug(PLCTAG_DEBUG_SPEW, "Calling %s on %s", #op, #mtx_p);           \
+        int ret = op(mtx_p);                                                  \
+        if (ret) {                                                            \
+            errx(1, "%s:%d: %s: %s", __FILE__, __LINE__, #op, strerror(ret)); \
+        }                                                                     \
     } while (0)
 
 #define MTX_UNLOCK(mtx_p) MTX_OP(pthread_mutex_unlock, mtx_p)

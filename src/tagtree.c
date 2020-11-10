@@ -72,22 +72,27 @@ tag_tree_create_node()
 
     RW_UNLOCK(&tag_tree_mtx);
 
+    pdebug(PLCTAG_DEBUG_DETAIL, "Created new tag %d", id);
+
     return tag;
 }
 
 int
 tag_tree_remove(int32_t id) {
     struct tag_tree_node* tag;
-
     tag_tree_init();
     
-    RW_WRLOCK(&tag_tree_mtx);
 
     tag = tag_tree_lookup(id);
     if (!tag) {
         pdebug(PLCTAG_DEBUG_WARN, "Lookup for tag %d failed", id);
+        RW_UNLOCK(&tag_tree_mtx);
         return PLCTAG_ERR_NOT_FOUND;
     }
+
+    /* FIXME: This is racy: two threads racing on removing the same
+     * ID could yield Weirdness given that IDs get reassigned. */
+    RW_WRLOCK(&tag_tree_mtx);
 
     /* TODO: special case for the empty tree?. */
     RB_REMOVE(tag_tree_t, &tag_tree, tag);
@@ -98,6 +103,8 @@ tag_tree_remove(int32_t id) {
     free(tag->data);
     free(tag->name);
     free(tag);
+
+    pdebug(PLCTAG_DEBUG_DETAIL, "Removed tag %d", id);
 
     return PLCTAG_STATUS_OK;
 }
@@ -116,6 +123,7 @@ tag_tree_init()
     RW_RDLOCK(&tag_tree_mtx);
 
     if (tag_tree_inited) {
+        RW_UNLOCK(&tag_tree_mtx);
         return;
     }
 
@@ -125,15 +133,17 @@ tag_tree_init()
 
     /* Did somebody beat us to initing? If so, lucky us. */
     if (tag_tree_inited) {
+        RW_UNLOCK(&tag_tree_mtx);
         return;
     }
-
-    pdebug(PLCTAG_DEBUG_DETAIL, "Initing");
     tag_tree_inited = true;
     RW_UNLOCK(&tag_tree_mtx);
 
+    pdebug(PLCTAG_DEBUG_DETAIL, "Initing");
+
+
     /* TODO: this should be done as part of a helper that
-     * plc_tag_create can call.
+     * consumes dummy tags from an input file or something.
      */
     for (int i = 0; i < NTAGS; ++i) {
         char* name, *data;
@@ -173,6 +183,8 @@ tag_tree_lookup(int32_t tag_id)
     struct tag_tree_node *ret;
 
     tag_tree_init();
+
+    pdebug(PLCTAG_DEBUG_SPEW, "Looking up tag id %d", tag_id);
 
     RW_RDLOCK(&tag_tree_mtx);
 
