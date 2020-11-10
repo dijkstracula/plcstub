@@ -33,7 +33,8 @@ static size_t tree_size = 0;
 RB_PROTOTYPE(tag_tree_t, tag_tree_node, rb_entry, tagcmp);
 RB_GENERATE(tag_tree_t, tag_tree_node, rb_entry, tagcmp);
 
-
+static void
+tag_tree_init();
 
 /* Allocates and initialises a fresh tag in the tag tree. */
 struct tag_tree_node *
@@ -42,10 +43,14 @@ tag_tree_create_node()
     struct tag_tree_node* tag;
     int id;
 
+    tag_tree_init();
+    
+    RW_WRLOCK(&tag_tree_mtx);
+
     /* TODO: special case for the empty tree?. */
     tag = RB_MAX(tag_tree_t, &tag_tree);
     if (tag == NULL) {
-        id = 2; /* id=1 = "@tags" */
+        id = 1;
     } else {
         id = tag->tag_id + 1;
     }
@@ -60,7 +65,6 @@ tag_tree_create_node()
         err(1, "pthread_mutex_init");
     }
 
-    RW_WRLOCK(&tag_tree_mtx);
 
     tag->tag_id = id; 
     RB_INSERT(tag_tree_t, &tag_tree, tag);
@@ -69,6 +73,33 @@ tag_tree_create_node()
     RW_UNLOCK(&tag_tree_mtx);
 
     return tag;
+}
+
+int
+tag_tree_remove(int32_t id) {
+    struct tag_tree_node* tag;
+
+    tag_tree_init();
+    
+    RW_WRLOCK(&tag_tree_mtx);
+
+    tag = tag_tree_lookup(id);
+    if (!tag) {
+        pdebug(PLCTAG_DEBUG_WARN, "Lookup for tag %d failed", id);
+        return PLCTAG_ERR_NOT_FOUND;
+    }
+
+    /* TODO: special case for the empty tree?. */
+    RB_REMOVE(tag_tree_t, &tag_tree, tag);
+    tree_size--;
+
+    RW_UNLOCK(&tag_tree_mtx);
+
+    free(tag->data);
+    free(tag->name);
+    free(tag);
+
+    return PLCTAG_STATUS_OK;
 }
 
 /* invoked the first time the user of the library tries to do anything
@@ -116,7 +147,7 @@ tag_tree_init()
             err(1, "asnprintf");
         }
 
-        data = calloc(1, elem_count * elem_size);
+        data = calloc(elem_count, elem_size);
         if (!data) {
             err(1, "calloc");
         }

@@ -22,7 +22,7 @@ main(int argc, char** argv)
     if (ret < 0) {
         errx(1, "plc_tag_create returned %d", ret);
     } else {
-        printf("tag creation successful with return value %d\n", ret);
+        printf("tag_tree_node creation successful with return value %d\n", ret);
     }
 
     return 0;

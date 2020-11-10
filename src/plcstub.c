@@ -46,6 +46,20 @@ plc_tag_set_##name (int32_t tag, int offset, type val) {                    \
     return plcstub_set_impl(tag, offset, &val, plcstub_##name##_setter_cb); \
 }
 
+#define TYPEMAP        \
+/* X(name, type) */    \
+X(bit, int)            \
+X(uint64, uint64_t)    \
+X(int64, int64_t)      \
+X(uint32, uint32_t)    \
+X(int32, int32_t)      \
+X(uint16, uint16_t)    \
+X(int16, int16_t)      \
+X(uint8, uint8_t)      \
+X(int8, int8_t)        \
+X(float64, double)     \
+X(float32, float)
+
 static int
 plcstub_get_impl(int32_t tag, int offset, void* buf, getter_fn fn)
 {
@@ -249,6 +263,30 @@ done:
     return ret;
 }
 
+int
+plc_tag_destroy(int32_t tag) {
+    return tag_tree_remove(tag);
+}
+
+int
+plc_tag_get_size(int32_t id)
+{
+    int size;
+
+    struct tag_tree_node* t;
+
+    t = tag_tree_lookup(id);
+    if (!t) {
+        pdebug(PLCTAG_DEBUG_WARN, "Unknown tag %d", id);
+        return PLCTAG_ERR_NOT_FOUND;
+    }
+    MTX_LOCK(&t->mtx);
+    size = t->elem_size * t->elem_size;
+    MTX_UNLOCK(&t->mtx);
+
+    return size;
+}
+
 /* Stubs out the tag read path.  Only checks that the arguments
  * are valid.  It might be interesting to stub out "in-flight"
  * reads and writes for a heavily-concurrent integration test
@@ -271,6 +309,7 @@ plc_tag_read(int32_t tag_id, int timeout)
         return PLCTAG_ERR_NOT_FOUND;
     }
 
+    MTX_LOCK(&t->mtx);
     if (t->cb) {
         pdebug(PLCTAG_DEBUG_SPEW,
             "Calling cb for %d with PLCTAG_READ_EVENT_STARTED", tag_id);
@@ -279,6 +318,7 @@ plc_tag_read(int32_t tag_id, int timeout)
             "Calling cb for %d with PLCTAG_READ_EVENT_COMPLETED", tag_id);
         t->cb(tag_id, PLCTAG_EVENT_READ_COMPLETED, PLCTAG_STATUS_OK);
     }
+    MTX_UNLOCK(&t->mtx);
 
     return PLCTAG_STATUS_OK;
 }
@@ -331,28 +371,44 @@ plc_tag_unregister_callback(int32_t tag_id)
     return plc_tag_register_callback(tag_id, NULL);
 }
 
+/* Stubs out the tag write path.
+ */
+int
+plc_tag_write(int32_t tag_id, int timeout)
+{
+    (void)(timeout);
+    struct tag_tree_node* t;
+
+    if (timeout < 0) {
+        pdebug(PLCTAG_DEBUG_WARN, "Timeout must not be negative");
+        return PLCTAG_ERR_BAD_PARAM;
+    }
+
+    t = tag_tree_lookup(tag_id);
+    if (!t) {
+        pdebug(PLCTAG_DEBUG_WARN, "Unknown tag %d", tag_id);
+        return PLCTAG_ERR_NOT_FOUND;
+    }
+
+    MTX_LOCK(&t->mtx);
+    if (t->cb) {
+        pdebug(PLCTAG_DEBUG_SPEW,
+            "Calling cb for %d with PLCTAG_WRITE_EVENT_STARTED", tag_id);
+        t->cb(tag_id, PLCTAG_EVENT_WRITE_STARTED, PLCTAG_STATUS_OK);
+        pdebug(PLCTAG_DEBUG_SPEW,
+            "Calling cb for %d with PLCTAG_WRITE_EVENT_COMPLETED", tag_id);
+        t->cb(tag_id, PLCTAG_EVENT_WRITE_COMPLETED, PLCTAG_STATUS_OK);
+    }
+    MTX_UNLOCK(&t->mtx);
+
+    return PLCTAG_STATUS_OK;
+}
+
 /* macro expansions */
 
-GETTER(bit, int);
-GETTER(uint64, uint64_t);
-GETTER(int64, int64_t);
-GETTER(uint32, uint32_t);
-GETTER(int32, int32_t);
-GETTER(uint16, uint16_t);
-GETTER(int16, int16_t);
-GETTER(uint8, uint8_t);
-GETTER(int8, int8_t);
-GETTER(float64, double);
-GETTER(float32, float);
-
-SETTER(bit, int);
-SETTER(uint64, uint64_t);
-SETTER(int64, int64_t);
-SETTER(uint32, uint32_t);
-SETTER(int32, int32_t);
-SETTER(uint16, uint16_t);
-SETTER(int16, int16_t);
-SETTER(uint8, uint8_t);
-SETTER(int8, int8_t);
-SETTER(float64, double);
-SETTER(float32, float);
+#define X(name, type) SETTER(name, type);
+TYPEMAP
+#undef X
+#define X(name, type) GETTER(name, type);
+TYPEMAP
+#undef X

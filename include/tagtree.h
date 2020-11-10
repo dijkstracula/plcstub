@@ -30,4 +30,7 @@ tag_tree_lookup(int32_t tag_id);
 int
 tag_tree_insert(struct tag_tree_node* node);
 
+int
+tag_tree_remove(int32_t tag_id);
+
 #endif
