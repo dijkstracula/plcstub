@@ -267,6 +267,97 @@ done:
     return ret;
 }
 
+const char *
+plc_tag_decode_error(int rc)
+{
+    switch(rc) {
+    case PLCTAG_STATUS_PENDING:
+        return "PLCTAG_STATUS_PENDING";
+    case PLCTAG_STATUS_OK:
+        return "PLCTAG_STATUS_OK";
+    case PLCTAG_ERR_ABORT:
+        return "PLCTAG_ERR_ABORT";
+    case PLCTAG_ERR_BAD_CONFIG:
+        return "PLCTAG_ERR_BAD_CONFIG";
+    case PLCTAG_ERR_BAD_CONNECTION:
+        return "PLCTAG_ERR_BAD_CONNECTION";
+    case PLCTAG_ERR_BAD_DATA:
+        return "PLCTAG_ERR_BAD_DATA";
+    case PLCTAG_ERR_BAD_DEVICE:
+        return "PLCTAG_ERR_BAD_DEVICE";
+    case PLCTAG_ERR_BAD_GATEWAY:
+        return "PLCTAG_ERR_BAD_GATEWAY";
+    case PLCTAG_ERR_BAD_PARAM:
+        return "PLCTAG_ERR_BAD_PARAM";
+    case PLCTAG_ERR_BAD_REPLY:
+        return "PLCTAG_ERR_BAD_REPLY";
+    case PLCTAG_ERR_BAD_STATUS:
+        return "PLCTAG_ERR_BAD_STATUS";
+    case PLCTAG_ERR_CLOSE:
+        return "PLCTAG_ERR_CLOSE";
+    case PLCTAG_ERR_CREATE:
+        return "PLCTAG_ERR_CREATE";
+    case PLCTAG_ERR_DUPLICATE:
+        return "PLCTAG_ERR_DUPLICATE";
+    case PLCTAG_ERR_ENCODE:
+        return "PLCTAG_ERR_ENCODE";
+    case PLCTAG_ERR_MUTEX_DESTROY:
+        return "PLCTAG_ERR_MUTEX_DESTROY";
+    case PLCTAG_ERR_MUTEX_INIT:
+        return "PLCTAG_ERR_MUTEX_INIT";
+    case PLCTAG_ERR_MUTEX_LOCK:
+        return "PLCTAG_ERR_MUTEX_LOCK";
+    case PLCTAG_ERR_MUTEX_UNLOCK:
+        return "PLCTAG_ERR_MUTEX_UNLOCK";
+    case PLCTAG_ERR_NOT_ALLOWED:
+        return "PLCTAG_ERR_NOT_ALLOWED";
+    case PLCTAG_ERR_NOT_FOUND:
+        return "PLCTAG_ERR_NOT_FOUND";
+    case PLCTAG_ERR_NOT_IMPLEMENTED:
+        return "PLCTAG_ERR_NOT_IMPLEMENTED";
+    case PLCTAG_ERR_NO_DATA:
+        return "PLCTAG_ERR_NO_DATA";
+    case PLCTAG_ERR_NO_MATCH:
+        return "PLCTAG_ERR_NO_MATCH";
+    case PLCTAG_ERR_NO_MEM:
+        return "PLCTAG_ERR_NO_MEM";
+    case PLCTAG_ERR_NO_RESOURCES:
+        return "PLCTAG_ERR_NO_RESOURCES";
+    case PLCTAG_ERR_NULL_PTR:
+        return "PLCTAG_ERR_NULL_PTR";
+    case PLCTAG_ERR_OPEN:
+        return "PLCTAG_ERR_OPEN";
+    case PLCTAG_ERR_OUT_OF_BOUNDS:
+        return "PLCTAG_ERR_OUT_OF_BOUNDS";
+    case PLCTAG_ERR_READ:
+        return "PLCTAG_ERR_READ";
+    case PLCTAG_ERR_REMOTE_ERR:
+        return "PLCTAG_ERR_REMOTE_ERR";
+    case PLCTAG_ERR_THREAD_CREATE:
+        return "PLCTAG_ERR_THREAD_CREATE";
+    case PLCTAG_ERR_THREAD_JOIN:
+        return "PLCTAG_ERR_THREAD_JOIN";
+    case PLCTAG_ERR_TIMEOUT:
+        return "PLCTAG_ERR_TIMEOUT";
+    case PLCTAG_ERR_TOO_LARGE:
+        return "PLCTAG_ERR_TOO_LARGE";
+    case PLCTAG_ERR_TOO_SMALL:
+        return "PLCTAG_ERR_TOO_SMALL";
+    case PLCTAG_ERR_UNSUPPORTED:
+        return "PLCTAG_ERR_UNSUPPORTED";
+    case PLCTAG_ERR_WINSOCK:
+        return "PLCTAG_ERR_WINSOCK";
+    case PLCTAG_ERR_WRITE:
+        return "PLCTAG_ERR_WRITE";
+    case PLCTAG_ERR_PARTIAL:
+        return "PLCTAG_ERR_PARTIAL";
+    case PLCTAG_ERR_BUSY:
+        return "PLCTAG_ERR_BUSY";
+    }
+
+    return "Unknown error.";
+}
+
 int
 plc_tag_destroy(int32_t tag) {
     return tag_tree_remove(tag);

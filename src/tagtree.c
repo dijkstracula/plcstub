@@ -184,7 +184,7 @@ tag_tree_lookup(int32_t tag_id)
 
     tag_tree_init();
 
-    pdebug(PLCTAG_DEBUG_SPEW, "Looking up tag id %d", tag_id);
+    pdebug(PLCTAG_DEBUG_DETAIL, "Looking up tag id %d", tag_id);
 
     RW_RDLOCK(&tag_tree_mtx);
 
