@@ -13,16 +13,16 @@
 
 #include "debug.h"
 
-/* Ensures mutual exclusion on:
- * 1) the log level;
- * 2) the debug log output stream (currently just stderr)
+/* 
+ * Ensures mutual exclusion on the debug log output stream (currently just
+ * stderr, but the libplctag API allows setting it elsewhere).
  */
 static pthread_mutex_t debug_mtx = PTHREAD_MUTEX_INITIALIZER;
 
 #ifdef DEBUG
-static int debug_level = PLCTAG_DEBUG_SPEW;
+volatile static int debug_level = PLCTAG_DEBUG_SPEW;
 #else
-static int debug_level = PLCTAG_DEBUG_INFO;
+volatile static int debug_level = PLCTAG_DEBUG_INFO;
 #endif
 
 const char*
@@ -71,17 +71,9 @@ pdebug_impl(const char* func, const char* file, int line, int level, const char*
 int
 debug_get_level()
 {
-    int level, ret;
+    int level;
 
-    if ((ret = pthread_mutex_lock(&debug_mtx)) != 0) {
-        err(1, "pthread_mutex_lock");
-    }
-
-    level = debug_level;
-
-    if ((ret = pthread_mutex_unlock(&debug_mtx)) != 0) {
-        err(1, "pthread_mutex_unlock");
-    }
+    __atomic_load(&debug_level, &level, __ATOMIC_ACQUIRE);
 
     return level;
 }
@@ -89,19 +81,8 @@ debug_get_level()
 void
 debug_set_level(int level)
 {
-    int ret;
-
-    if ((ret = pthread_mutex_lock(&debug_mtx)) != 0) {
-        err(1, "pthread_mutex_lock");
-    }
-
     if (level < PLCTAG_DEBUG_NONE || level > PLCTAG_DEBUG_SPEW) {
         err(1, "Unknown debug level number %d", level);
-    } else {
-        debug_level = level;
     }
-
-    if ((ret = pthread_mutex_unlock(&debug_mtx)) != 0) {
-        err(1, "pthread_mutex_unlock");
-    }
+    __atomic_store(&debug_level, &level, __ATOMIC_RELEASE);
 }

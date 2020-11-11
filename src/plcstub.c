@@ -17,6 +17,7 @@
 #include "lock_utils.h"
 #include "tagtree.h"
 
+/* TODO: there should be a way of unifying these (as well as the _impl functions). */
 typedef void(getter_fn)(char *buf, int offset, void *val);
 typedef void(setter_fn)(char *buf, int offset, void *val);
 
@@ -25,7 +26,8 @@ typedef void(setter_fn)(char *buf, int offset, void *val);
 /* 
  * TODO: To allow returning negative values for error codes from
  * plcstub_get_impl, we may have to look at widening the types underlying each
- * particular type.
+ * particular type.  Not sure how to do that and maintain API compatability with
+ * libplctag, though.
  */
 #define GETTER(name, type)                                                  \
 static void                                                                 \
