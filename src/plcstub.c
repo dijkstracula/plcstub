@@ -22,6 +22,11 @@ typedef void(setter_fn)(char *buf, int offset, void *val);
 
 /* Accessor / mutator macros */
 
+/* 
+ * TODO: To allow returning negative values for error codes from
+ * plcstub_get_impl, we may have to look at widening the types underlying each
+ * particular type.
+ */
 #define GETTER(name, type)                                                  \
 static void                                                                 \
 plcstub_##name##_getter_cb(char *buf, int offset, void *val) {              \
@@ -31,8 +36,12 @@ plcstub_##name##_getter_cb(char *buf, int offset, void *val) {              \
 }                                                                           \
 type                                                                        \
 plc_tag_get_##name (int32_t tag, int offset) {                              \
+    int impl_ret;                                                           \
     type val;                                                               \
-    plcstub_get_impl(tag, offset, &val, plcstub_##name##_getter_cb);        \
+    impl_ret = plcstub_get_impl(tag, offset, &val, plcstub_##name##_getter_cb); \
+    if (impl_ret != PLCTAG_STATUS_OK) {                                     \
+        return (type)(impl_ret);                                            \
+    }                                                                       \
     return val;                                                             \
 } 
 
@@ -92,6 +101,7 @@ plcstub_get_impl(int32_t tag, int offset, void* buf, getter_fn fn)
                 "Calling cb for %d with PLCTAG_EVENT_ABORTED", tag);
             t->cb(tag, PLCTAG_EVENT_ABORTED, PLCTAG_ERR_BAD_PARAM);
         }
+        MTX_UNLOCK(&t->mtx);
         return PLCTAG_ERR_BAD_PARAM;
     }
 
@@ -243,24 +253,32 @@ plc_tag_create(const char* attrib, int timeout)
         goto done;
     }
 
-    tag = tag_tree_create_node();
-    if (tag == NULL) {
-        err(1, "tag_tree_create_node");
+    if (strcmp(name, "@tags") == 0) {
+        tag = tag_tree_metanode_create();
+        if (tag == NULL) {
+            err(1, "tag_tree_metanode_create");
+        }
+        ret = tag->tag_id;
+    } else {
+        tag = tag_tree_node_create();
+        if (tag == NULL) {
+            err(1, "tag_tree_node_create");
+        }
+
+        MTX_LOCK(&tag->mtx);
+        tag->name = name;
+        tag->elem_count = elem_count;
+        tag->elem_size = elem_size;
+
+        tag->data = calloc(tag->elem_count, tag->elem_size);
+        if (tag->data == NULL) {
+            err(1, "calloc");
+        }
+
+        ret = tag->tag_id;
+
+        MTX_UNLOCK(&tag->mtx);
     }
-
-    MTX_LOCK(&tag->mtx);
-    tag->name = name;
-    tag->elem_count = elem_count;
-    tag->elem_size = elem_size;
-
-    tag->data = calloc(tag->elem_count, tag->elem_size);
-    if (tag->data == NULL) {
-        err(1, "calloc");
-    }
-
-    ret = tag->tag_id;
-
-    MTX_UNLOCK(&tag->mtx);
 
 done:
     free(str);
@@ -376,7 +394,7 @@ plc_tag_get_size(int32_t id)
         return PLCTAG_ERR_NOT_FOUND;
     }
     MTX_LOCK(&t->mtx);
-    size = t->elem_size * t->elem_size;
+    size = t->elem_count * t->elem_size;
     MTX_UNLOCK(&t->mtx);
 
     return size;

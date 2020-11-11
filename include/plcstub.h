@@ -23,13 +23,13 @@ enum tag_type {
     TAG_LINT
 };
 
-struct tag_t {
+struct __attribute__((packed)) metatag_t {
     uint32_t id;
     uint16_t type;
     uint16_t elem_size;
     uint32_t array_dims[3];
     uint16_t length;
     char data[0];
-} __attribute__((packed));
+};
 
 #endif

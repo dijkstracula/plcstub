@@ -6,6 +6,9 @@
 #include <pthread.h>
 #include <string.h>
 
+/* The tag ID for the "@tag" metatag. */
+#define METATAG_ID 1
+
 struct tag_tree_node {
     RB_ENTRY(tag_tree_node)
     rb_entry;
@@ -24,7 +27,13 @@ struct tag_tree_node {
 };
 
 struct tag_tree_node*
-tag_tree_create_node();
+tag_tree_metanode_create();
+
+struct tag_tree_node*
+tag_tree_node_create();
+
+void
+tag_tree_node_destroy(struct tag_tree_node*);
 
 struct tag_tree_node*
 tag_tree_lookup(int32_t tag_id);
