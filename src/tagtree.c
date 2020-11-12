@@ -4,6 +4,10 @@
  * author: ntaylor
  */
 
+#ifndef __uintptr_t
+  #define __uintptr_t uintptr_t
+#endif
+
 #include <err.h>
 #include <pthread.h>
 #include <stdbool.h>

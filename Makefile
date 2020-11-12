@@ -1,5 +1,5 @@
-CC=gcc
-CFLAGS=-Wall -g -I"./include" -I"./" -std=c11
+CC=clang
+CFLAGS=-Wall -g -I"./include" -I"./" -std=gnu11
 #CFLAGS+=-fsanitize=address
 SRCS=$(wildcard src/*.c)
 TARGET=libplctag.a

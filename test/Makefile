@@ -1,4 +1,4 @@
-CC=gcc
+CC=clang
 CFLAGS=-Wall -fsanitize=address -g -I../include -I../
 
 TESTS=$(wildcard *.c)
