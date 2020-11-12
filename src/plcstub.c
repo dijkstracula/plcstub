@@ -174,7 +174,7 @@ plc_tag_check_lib_version(int req_major, int req_minor, int req_patch) {
     (void)(req_major);
     (void)(req_minor);
     (void)(req_patch);
-    return true;
+    return PLCTAG_STATUS_OK;
 }
 
 int
