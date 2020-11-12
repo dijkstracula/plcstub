@@ -1,4 +1,4 @@
-CC=gcc
+CC=clang
 CFLAGS=-Wall -fsanitize=address -g -I../include -I../
 
 TESTS=$(wildcard *.c)
@@ -9,5 +9,5 @@ all: $(EXES)
 	$(CC) $(CFLAGS) $< ../libplctag.a -o test_$@
 
 clean:
-	rm -r *.dSYM || true 2>/dev/null
-	rm test_* 2>/dev/null
+	rm -rf *.dSYM
+	rm -f test_*
