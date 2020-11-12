@@ -5,7 +5,7 @@ SRCS=$(wildcard src/*.c)
 TARGET=libplctag.a
 
 all: libplctag.a
-	make -C test
+	$(MAKE) -C test
 
 debug : CFLAGS+= -DDEBUG
 debug: all
@@ -18,5 +18,5 @@ libplctag.a: $(patsubst %.c,%.o,$(SRCS))
 
 .PHONY: clean
 clean:
-	make -C test clean
-	rm src/*.o libplctag.a || true
+	$(MAKE) -C test clean
+	rm -f src/*.o libplctag.a
