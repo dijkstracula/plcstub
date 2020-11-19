@@ -12,14 +12,14 @@
 #include <string.h>
 
 #include "debug.h"
-#include "plcstub.h"
 #include "libplctag.h"
 #include "lock_utils.h"
+#include "plcstub.h"
 #include "tagtree.h"
 
 /* TODO: there should be a way of unifying these (as well as the _impl functions). */
-typedef void(getter_fn)(char *buf, int offset, void *val);
-typedef void(setter_fn)(char *buf, int offset, void *val);
+typedef void(getter_fn)(char* buf, int offset, void* val);
+typedef void(setter_fn)(char* buf, int offset, void* val);
 
 /* Accessor / mutator macros */
 
@@ -29,49 +29,53 @@ typedef void(setter_fn)(char *buf, int offset, void *val);
  * particular type.  Not sure how to do that and maintain API compatability with
  * libplctag, though.
  */
-#define GETTER(name, type)                                                  \
-static void                                                                 \
-plcstub_##name##_getter_cb(char *buf, int offset, void *val) {              \
-    pdebug(PLCTAG_DEBUG_SPEW, "reading at offset %d", offset);              \
-    type *p = (type *)(buf + offset);                                       \
-    *(type *)(val) = *p;                                                    \
-}                                                                           \
-type                                                                        \
-plc_tag_get_##name (int32_t tag, int offset) {                              \
-    int impl_ret;                                                           \
-    type val;                                                               \
-    impl_ret = plcstub_get_impl(tag, offset, &val, plcstub_##name##_getter_cb); \
-    if (impl_ret != PLCTAG_STATUS_OK) {                                     \
-        return (type)(impl_ret);                                            \
-    }                                                                       \
-    return val;                                                             \
-} 
+#define GETTER(name, type)                                                          \
+    static void                                                                     \
+        plcstub_##name##_getter_cb(char* buf, int offset, void* val)                \
+    {                                                                               \
+        pdebug(PLCTAG_DEBUG_SPEW, "reading at offset %d", offset);                  \
+        type* p = (type*)(buf + offset);                                            \
+        *(type*)(val) = *p;                                                         \
+    }                                                                               \
+    type                                                                            \
+        plc_tag_get_##name(int32_t tag, int offset)                                 \
+    {                                                                               \
+        int impl_ret;                                                               \
+        type val;                                                                   \
+        impl_ret = plcstub_get_impl(tag, offset, &val, plcstub_##name##_getter_cb); \
+        if (impl_ret != PLCTAG_STATUS_OK) {                                         \
+            return (type)(impl_ret);                                                \
+        }                                                                           \
+        return val;                                                                 \
+    }
 
-#define SETTER(name, type)                                                  \
-static void                                                                 \
-plcstub_##name##_setter_cb(char *buf, int offset, void *val) {              \
-    pdebug(PLCTAG_DEBUG_SPEW, "writing at offset %d", offset);              \
-    type *p = (type *)(buf + offset);                                       \
-    *p = *(type *)(val);                                                    \
-}                                                                           \
-int                                                                         \
-plc_tag_set_##name (int32_t tag, int offset, type val) {                    \
-    return plcstub_set_impl(tag, offset, &val, plcstub_##name##_setter_cb); \
-}
+#define SETTER(name, type)                                                      \
+    static void                                                                 \
+        plcstub_##name##_setter_cb(char* buf, int offset, void* val)            \
+    {                                                                           \
+        pdebug(PLCTAG_DEBUG_SPEW, "writing at offset %d", offset);              \
+        type* p = (type*)(buf + offset);                                        \
+        *p = *(type*)(val);                                                     \
+    }                                                                           \
+    int                                                                         \
+        plc_tag_set_##name(int32_t tag, int offset, type val)                   \
+    {                                                                           \
+        return plcstub_set_impl(tag, offset, &val, plcstub_##name##_setter_cb); \
+    }
 
-#define TYPEMAP        \
-/* X(name, type) */    \
-X(bit, int)            \
-X(uint64, uint64_t)    \
-X(int64, int64_t)      \
-X(uint32, uint32_t)    \
-X(int32, int32_t)      \
-X(uint16, uint16_t)    \
-X(int16, int16_t)      \
-X(uint8, uint8_t)      \
-X(int8, int8_t)        \
-X(float64, double)     \
-X(float32, float)
+#define TYPEMAP         \
+    /* X(name, type) */ \
+    X(bit, int)         \
+    X(uint64, uint64_t) \
+    X(int64, int64_t)   \
+    X(uint32, uint32_t) \
+    X(int32, int32_t)   \
+    X(uint16, uint16_t) \
+    X(int16, int16_t)   \
+    X(uint8, uint8_t)   \
+    X(int8, int8_t)     \
+    X(float64, double)  \
+    X(float32, float)
 
 static int
 plcstub_get_impl(int32_t tag, int offset, void* buf, getter_fn fn)
@@ -96,7 +100,7 @@ plcstub_get_impl(int32_t tag, int offset, void* buf, getter_fn fn)
     }
 
     if (offset >= t->elem_count * t->elem_size) {
-        pdebug(PLCTAG_DEBUG_WARN, 
+        pdebug(PLCTAG_DEBUG_WARN,
             "Offset %d out of bounds of [0..%d)", offset, t->elem_count * t->elem_size);
         if (t->cb) {
             pdebug(PLCTAG_DEBUG_SPEW,
@@ -121,7 +125,7 @@ plcstub_get_impl(int32_t tag, int offset, void* buf, getter_fn fn)
 }
 
 static int
-plcstub_set_impl(int32_t tag, int offset, void *value, setter_fn fn)
+plcstub_set_impl(int32_t tag, int offset, void* value, setter_fn fn)
 {
     struct tag_tree_node* t;
 
@@ -143,7 +147,7 @@ plcstub_set_impl(int32_t tag, int offset, void *value, setter_fn fn)
     }
 
     if (offset >= t->elem_count * t->elem_size) {
-        pdebug(PLCTAG_DEBUG_WARN, 
+        pdebug(PLCTAG_DEBUG_WARN,
             "Offset %d out of bounds of [0..%d)", offset, t->elem_count * t->elem_size);
         if (t->cb) {
             pdebug(PLCTAG_DEBUG_SPEW,
@@ -168,9 +172,9 @@ plcstub_set_impl(int32_t tag, int offset, void *value, setter_fn fn)
 
 /************************ Public API ************************/
 
-
 int
-plc_tag_check_lib_version(int req_major, int req_minor, int req_patch) {
+plc_tag_check_lib_version(int req_major, int req_minor, int req_patch)
+{
     (void)(req_major);
     (void)(req_minor);
     (void)(req_patch);
@@ -287,10 +291,10 @@ done:
     return ret;
 }
 
-const char *
+const char*
 plc_tag_decode_error(int rc)
 {
-    switch(rc) {
+    switch (rc) {
     case PLCTAG_STATUS_PENDING:
         return "PLCTAG_STATUS_PENDING";
     case PLCTAG_STATUS_OK:
@@ -379,7 +383,8 @@ plc_tag_decode_error(int rc)
 }
 
 int
-plc_tag_destroy(int32_t tag) {
+plc_tag_destroy(int32_t tag)
+{
     return tag_tree_remove(tag);
 }
 
@@ -400,6 +405,36 @@ plc_tag_get_size(int32_t id)
     MTX_UNLOCK(&t->mtx);
 
     return size;
+}
+
+extern int
+plc_tag_lock(int32_t id)
+{
+    struct tag_tree_node* t;
+
+    t = tag_tree_lookup(id);
+    if (!t) {
+        pdebug(PLCTAG_DEBUG_WARN, "Unknown tag %d", id);
+        return PLCTAG_ERR_NOT_FOUND;
+    }
+    MTX_LOCK(&t->mtx);
+
+    return PLCTAG_STATUS_OK;
+}
+
+extern int
+plc_tag_unlock(int32_t id)
+{
+    struct tag_tree_node* t;
+
+    t = tag_tree_lookup(id);
+    if (!t) {
+        pdebug(PLCTAG_DEBUG_WARN, "Unknown tag %d", id);
+        return PLCTAG_ERR_NOT_FOUND;
+    }
+    MTX_UNLOCK(&t->mtx);
+
+    return PLCTAG_STATUS_OK;
 }
 
 /* Stubs out the tag read path.  Only checks that the arguments
