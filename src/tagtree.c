@@ -292,26 +292,32 @@ tag_tree_remove(int32_t id)
 {
     struct tag_tree_node* tag;
 
+    if (id == METATAG_ID) {
+        // Unclear why we would want to remove this, but
+        // silently accept it.
+        return PLCTAG_STATUS_OK;
+    }
+
     tag_tree_init();
 
-    tag = tag_tree_lookup(id);
+    RW_WRLOCK(&tag_tree_mtx);
+
+    struct tag_tree_node find;
+    find.tag_id = id;
+    tag = RB_FIND(tag_tree_t, &tag_tree, &find);
     if (!tag) {
         pdebug(PLCTAG_DEBUG_WARN, "Lookup for tag %d failed", id);
         RW_UNLOCK(&tag_tree_mtx);
         return PLCTAG_ERR_NOT_FOUND;
     }
-    MTX_LOCK(&tag->mtx);
 
-    /* FIXME: This is racy: two threads racing on removing the same
-     * ID could yield Weirdness given that IDs get reassigned. */
-    RW_WRLOCK(&tag_tree_mtx);
+    MTX_LOCK(&tag->mtx);
 
     /* TODO: special case for the empty tree?. */
     RB_REMOVE(tag_tree_t, &tag_tree, tag);
     tree_size--;
 
     RW_UNLOCK(&tag_tree_mtx);
-
     MTX_UNLOCK(&tag->mtx);
 
     tag_tree_node_destroy(tag);
