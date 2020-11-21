@@ -42,14 +42,19 @@ RB_GENERATE(tag_tree_t, tag_tree_node, rb_entry, tagcmp);
 static void
 tag_tree_init();
 
+/* Creates the special "@tags" metanode, the tag containing an array
+ * of all tags.  The tag tree node lock is assumed to be held by the caller!
+ * 
+ * Unlike tag_tree_create(), because no population of fields is necessary,
+ * the metanode is _not_ locked before it is returned to the caller.  (Would
+ * it be better if we did that, for API consistency?)
+ */
 struct tag_tree_node*
 tag_tree_metanode_create()
 {
     size_t total_data_size = 0;
     struct tag_tree_node *tag, *ret;
     char* p;
-
-    RW_WRLOCK(&tag_tree_mtx);
 
     RB_FOREACH(tag, tag_tree_t, &tag_tree)
     {
@@ -100,15 +105,16 @@ tag_tree_metanode_create()
 
     RB_INSERT(tag_tree_t, &tag_tree, ret);
 
-    RW_UNLOCK(&tag_tree_mtx);
-
     return ret;
 }
 
 /* Allocates and initialises a fresh tag  In order to ensure no tags
- * are duplicated, tag_tree_mtx must already be held by the caller. */
+ * are duplicated, tag_tree_mtx must already be held by the caller. 
+ * The node that is returned is inserted into the tree BUT has its
+ * mutex held.  The caller will populate its fields and unlock it
+ * when it is ready to be visible. */
 struct tag_tree_node*
-tag_tree_node_create()
+tag_tree_node_create(const char* name, size_t elem_size, size_t elem_count)
 {
     struct tag_tree_node *tag, *metatag, find;
     int id;
@@ -130,16 +136,26 @@ tag_tree_node_create()
     if (pthread_mutex_init(&tag->mtx, NULL)) {
         err(1, "pthread_mutex_init");
     }
+    MTX_LOCK(&tag->mtx);
 
-    /* TODO: should we take the lock before inserting
-     * and let the caller unlock it so that the first 
-     * reader is guaranteed to see the complete object?
-     */
+    tag->name = strdup(name);
+    if (!tag->name) {
+        errx(1, "strdup");
+    }
+
+    tag->elem_count = elem_count;
+    tag->elem_size = elem_size;
+
+    tag->data = calloc(tag->elem_count, tag->elem_size);
+    if (tag->data == NULL) {
+        err(1, "calloc");
+    }
 
     tag->tag_id = id;
     RB_INSERT(tag_tree_t, &tag_tree, tag);
     tree_size++;
 
+    /* Invalidate the metatag, if one exists. */
     find.tag_id = METATAG_ID;
     metatag = RB_FIND(tag_tree_t, &tag_tree, &find);
     if (metatag != NULL) {
@@ -148,7 +164,7 @@ tag_tree_node_create()
         tag_tree_node_destroy(metatag);
     }
 
-    pdebug(PLCTAG_DEBUG_DETAIL, "Created new tag %d", id);
+    pdebug(PLCTAG_DEBUG_DETAIL, "Created new tag %d (%s)", id, name);
 
     return tag;
 }
@@ -187,6 +203,7 @@ tag_tree_remove(int32_t id)
         RW_UNLOCK(&tag_tree_mtx);
         return PLCTAG_ERR_NOT_FOUND;
     }
+    MTX_LOCK(&tag->mtx);
 
     /* FIXME: This is racy: two threads racing on removing the same
      * ID could yield Weirdness given that IDs get reassigned. */
@@ -197,6 +214,8 @@ tag_tree_remove(int32_t id)
     tree_size--;
 
     RW_UNLOCK(&tag_tree_mtx);
+
+    MTX_UNLOCK(&tag->mtx);
 
     tag_tree_node_destroy(tag);
 
@@ -240,28 +259,14 @@ tag_tree_init()
      * consumes dummy tags from an input file or something.
      */
     for (int i = 0; i < NTAGS; ++i) {
-        char *name, *data;
+        char name[1024];
         size_t elem_count = 1;
         size_t elem_size = sizeof(uint32_t);
 
-        struct tag_tree_node* tag = tag_tree_node_create();
-        MTX_LOCK(&tag->mtx);
+        snprintf(name, sizeof(name), "DUMMY_AQUA_DATA_%d", i);
 
-        asprintf(&name, "DUMMY_AQUA_DATA_%d", i);
-        if (name == NULL) {
-            err(1, "asnprintf");
-        }
-
-        data = calloc(elem_count, elem_size);
-        if (!data) {
-            err(1, "calloc");
-        }
-        *(uint16_t*)(data) = i;
-
-        tag->name = name;
-        tag->data = data;
-        tag->elem_count = elem_count;
-        tag->elem_size = elem_size;
+        struct tag_tree_node* tag = tag_tree_node_create(name, elem_size, elem_count);
+        *(uint16_t*)(tag->data) = i;
         MTX_UNLOCK(&tag->mtx);
     }
     RW_UNLOCK(&tag_tree_mtx);
@@ -281,18 +286,23 @@ tag_tree_lookup(int32_t tag_id)
 
     pdebug(PLCTAG_DEBUG_DETAIL, "Looking up tag id %d", tag_id);
 
-    RW_RDLOCK(&tag_tree_mtx);
+    if (tag_id == METATAG_ID) {
+        /* we may have to refresh the metanode tag, so we need
+         * exclusive access to the rwlock for the metatag. */
+        RW_WRLOCK(&tag_tree_mtx);
+    } else {
+        RW_RDLOCK(&tag_tree_mtx);
+    }
 
     struct tag_tree_node find;
     find.tag_id = tag_id;
     ret = RB_FIND(tag_tree_t, &tag_tree, &find);
 
-    RW_UNLOCK(&tag_tree_mtx);
-
     if (ret == NULL && tag_id == METATAG_ID) {
-        return tag_tree_metanode_create();
+        ret = tag_tree_metanode_create();
     }
 
+    RW_UNLOCK(&tag_tree_mtx);
     return ret;
 }
 

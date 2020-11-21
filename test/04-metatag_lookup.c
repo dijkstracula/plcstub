@@ -6,6 +6,9 @@
 #include "plcstub.h"
 #include "tagtree.h"
 
+/* This is the name of the first tag that will be reported back. */
+#define TAG_NAME_LENGTH (uint16_t)(strlen("DUMMY_AQUA_DATA_0"))
+
 int
 main(int argc, char** argv)
 {
@@ -13,7 +16,7 @@ main(int argc, char** argv)
     int16_t s2;
     int32_t s4;
 
-    plc_tag_set_debug_level(PLCTAG_DEBUG_SPEW);
+    plc_tag_set_debug_level(PLCTAG_DEBUG_DETAIL);
 
     ret = plc_tag_read(METATAG_ID, 1000);
     if (ret != PLCTAG_STATUS_OK) {
@@ -28,7 +31,7 @@ main(int argc, char** argv)
     offset += sizeof(s4);
 
     /* skip over type for now */
-    offset += sizeof(s2); 
+    offset += sizeof(s2);
 
     /* size */
     if ((s2 = plc_tag_get_int16(METATAG_ID, offset)) != 4) {
@@ -43,8 +46,8 @@ main(int argc, char** argv)
     offset += sizeof(s4) * 3;
 
     /* length */
-    if ((s2 = plc_tag_get_int16(METATAG_ID, offset)) != 4) {
-        errx(1, "Read at offset %d: expected %d, got %d", offset, 4, s2);
+    if ((s2 = plc_tag_get_int16(METATAG_ID, offset)) != TAG_NAME_LENGTH) {
+        errx(1, "Read at offset %d: expected %d, got %d", offset, TAG_NAME_LENGTH, s2);
     }
     offset += sizeof(s2);
 

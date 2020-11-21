@@ -207,6 +207,8 @@ plc_tag_create(const char* attrib, int timeout)
      */
     size_t elem_size = 2;
     size_t elem_count = 1;
+    bool elem_size_set = false;
+    bool elem_count_set = false;
 
     char* str = strdup(attrib);
 
@@ -236,20 +238,19 @@ plc_tag_create(const char* attrib, int timeout)
             if (name != NULL) {
                 pdebug(PLCTAG_DEBUG_WARN, "Overwriting attribute %s", "name");
             }
-            name = strdup(val);
-            if (name == NULL) {
-                err(1, "strdup");
-            }
+            name = val;
         } else if (strcmp("elem_size", key) == 0) {
-            if (elem_size > 0) {
+            if (elem_size_set) {
                 pdebug(PLCTAG_DEBUG_WARN, "Overwriting attribute %s", "elem_size");
             }
             elem_size = atoi(val);
+            elem_size_set = true;
         } else if (strcmp("elem_count", key) == 0) {
-            if (elem_count > 0) {
+            if (elem_count_set) {
                 pdebug(PLCTAG_DEBUG_WARN, "Overwriting attribute %s", "elem_count");
             }
             elem_count = atoi(val);
+            elem_count_set = true;
         }
     }
 
@@ -259,6 +260,9 @@ plc_tag_create(const char* attrib, int timeout)
         goto done;
     }
 
+    /* XXX: RACE: We aren't holding the tag tree lock here
+     * TODO(ntaylor): fix this.
+     */
     if (strcmp(name, "@tags") == 0) {
         tag = tag_tree_metanode_create();
         if (tag == NULL) {
@@ -266,28 +270,15 @@ plc_tag_create(const char* attrib, int timeout)
         }
         ret = tag->tag_id;
     } else {
-        tag = tag_tree_node_create();
+        tag = tag_tree_node_create(name, elem_size, elem_count);
         if (tag == NULL) {
             err(1, "tag_tree_node_create");
         }
-
-        MTX_LOCK(&tag->mtx);
-        tag->name = name;
-        tag->elem_count = elem_count;
-        tag->elem_size = elem_size;
-
-        tag->data = calloc(tag->elem_count, tag->elem_size);
-        if (tag->data == NULL) {
-            err(1, "calloc");
-        }
-
-        ret = tag->tag_id;
-
         MTX_UNLOCK(&tag->mtx);
+        ret = tag->tag_id;
     }
 
 done:
-    free(str);
     return ret;
 }
 
