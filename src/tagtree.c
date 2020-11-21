@@ -29,18 +29,165 @@ static pthread_rwlock_t tag_tree_mtx = PTHREAD_RWLOCK_INITIALIZER;
 
 /* Tag storage and lookup. */
 
-static int
-tagcmp(struct tag_tree_node* lhs, struct tag_tree_node* rhs);
-
 RB_HEAD(tag_tree_t, tag_tree_node)
 tag_tree = RB_INITIALIZER(&tag_tree);
 static size_t tree_size = 0;
+
+static int
+tagcmp(struct tag_tree_node* lhs, struct tag_tree_node* rhs);
 
 RB_PROTOTYPE(tag_tree_t, tag_tree_node, rb_entry, tagcmp);
 RB_GENERATE(tag_tree_t, tag_tree_node, rb_entry, tagcmp);
 
 static void
 tag_tree_init();
+static struct tag_tree_node*
+tag_tree_node_create(const char*, size_t, size_t);
+static void
+tag_tree_node_destroy();
+
+/* Compares two tag structures by ID. */
+static int
+tagcmp(struct tag_tree_node* lhs, struct tag_tree_node* rhs)
+{
+    return (lhs->tag_id < rhs->tag_id ? -1 : (lhs->tag_id > rhs->tag_id));
+}
+
+/* invoked the first time the user of the library tries to do anything
+ * with the the PLC.
+ * 
+ * Assumes that tag_tree_mtx is NOT held.
+ */
+static void
+tag_tree_init()
+{
+    static bool tag_tree_inited = false; /* Have we called tag_tree_init() yet? */
+
+    /* Check to see if we've inited.  If so, nothing to do. */
+    RW_RDLOCK(&tag_tree_mtx);
+
+    if (tag_tree_inited) {
+        RW_UNLOCK(&tag_tree_mtx);
+        return;
+    }
+
+    /* Upgrade to a writer lock and initialise. */
+    RW_UNLOCK(&tag_tree_mtx);
+    RW_WRLOCK(&tag_tree_mtx);
+
+    /* Did somebody beat us to initing? If so, lucky us. */
+    if (tag_tree_inited) {
+        RW_UNLOCK(&tag_tree_mtx);
+        return;
+    }
+    tag_tree_inited = true;
+
+    pdebug(PLCTAG_DEBUG_DETAIL, "Initing");
+
+    /* TODO: this should be done as part of a helper that
+     * consumes dummy tags from an input file or something.
+     */
+    for (int i = 0; i < NTAGS; ++i) {
+        char name[1024];
+        struct tag_tree_node* tag;
+
+        size_t elem_count = 1;
+        size_t elem_size = sizeof(uint32_t);
+
+        snprintf(name, sizeof(name), "DUMMY_AQUA_DATA_%d", i);
+
+        /* We are already holding the tag tree lock so we can't
+         * call tag_tree_insert and tag_tree_lookup like a normal
+         * caller would. */
+        tag = tag_tree_node_create(name, elem_size, elem_count);
+
+        *(uint16_t*)(tag->data) = i;
+        MTX_UNLOCK(&tag->mtx);
+    }
+    RW_UNLOCK(&tag_tree_mtx);
+}
+
+/* Allocates and initialises a fresh tag  In order to ensure no tags
+ * are duplicated, tag_tree_mtx must already be held by the caller. 
+ * The node that is returned is inserted into the tree BUT has its
+ * mutex held.  The caller will populate its fields and unlock it
+ * when it is ready to be visible. */
+static struct tag_tree_node*
+tag_tree_node_create(const char* name, size_t elem_size, size_t elem_count)
+{
+    struct tag_tree_node *tag, *metatag, find;
+    int id;
+
+    /* TODO: special case for the empty tree?. */
+    tag = RB_MAX(tag_tree_t, &tag_tree);
+    if (tag == NULL) {
+        id = METATAG_ID + 1;
+    } else {
+        id = tag->tag_id + 1;
+    }
+
+    tag = malloc(sizeof(struct tag_tree_node));
+    if (tag == NULL) {
+        err(1, "malloc");
+    }
+    memset(tag, 0, sizeof(struct tag_tree_node));
+
+    if (pthread_mutex_init(&tag->mtx, NULL)) {
+        err(1, "pthread_mutex_init");
+    }
+
+    tag->name = strdup(name);
+    if (!tag->name) {
+        errx(1, "strdup");
+    }
+
+    tag->elem_count = elem_count;
+    tag->elem_size = elem_size;
+
+    tag->data = calloc(tag->elem_count, tag->elem_size);
+    if (tag->data == NULL) {
+        err(1, "calloc");
+    }
+
+    tag->tag_id = id;
+    RB_INSERT(tag_tree_t, &tag_tree, tag);
+    tree_size++;
+
+    /* Invalidate the metatag, if one exists. */
+    find.tag_id = METATAG_ID;
+    metatag = RB_FIND(tag_tree_t, &tag_tree, &find);
+    if (metatag != NULL) {
+        RB_REMOVE(tag_tree_t, &tag_tree, metatag);
+        tree_size--;
+        tag_tree_node_destroy(metatag);
+    }
+
+    pdebug(PLCTAG_DEBUG_DETAIL, "Created new tag %d (%s)", id, name);
+
+    MTX_LOCK(&tag->mtx);
+    return tag;
+}
+
+static void
+tag_tree_node_destroy(struct tag_tree_node* tag)
+{
+    if (!tag) {
+        return;
+    }
+
+    pdebug(PLCTAG_DEBUG_DETAIL, "Destroying node %d", tag->tag_id);
+
+    MTX_LOCK(&tag->mtx);
+
+    pthread_mutex_t mtx = tag->mtx;
+    free(tag->data);
+    free(tag->name);
+    free(tag);
+
+    MTX_UNLOCK(&mtx);
+
+    pthread_mutex_destroy(&mtx);
+}
 
 /* Creates the special "@tags" metanode, the tag containing an array
  * of all tags.  The tag tree node lock is assumed to be held by the caller!
@@ -49,7 +196,7 @@ tag_tree_init();
  * the metanode is _not_ locked before it is returned to the caller.  (Would
  * it be better if we did that, for API consistency?)
  */
-struct tag_tree_node*
+static struct tag_tree_node*
 tag_tree_metanode_create()
 {
     size_t total_data_size = 0;
@@ -108,86 +255,36 @@ tag_tree_metanode_create()
     return ret;
 }
 
-/* Allocates and initialises a fresh tag  In order to ensure no tags
- * are duplicated, tag_tree_mtx must already be held by the caller. 
- * The node that is returned is inserted into the tree BUT has its
- * mutex held.  The caller will populate its fields and unlock it
- * when it is ready to be visible. */
-struct tag_tree_node*
-tag_tree_node_create(const char* name, size_t elem_size, size_t elem_count)
+/* 
+ * Allocates and inserts a new tag node into the tag tree with the given name
+ * and sizing metadata.  If the magic name "@tags" is given, the tag metanode
+ * is revalidated instead.
+ */
+int
+tag_tree_insert(const char* name, size_t elem_size, size_t elem_count)
 {
-    struct tag_tree_node *tag, *metatag, find;
-    int id;
+    int ret;
+    struct tag_tree_node* tag;
 
-    /* TODO: special case for the empty tree?. */
-    tag = RB_MAX(tag_tree_t, &tag_tree);
-    if (tag == NULL) {
-        id = METATAG_ID + 1;
+    tag_tree_init();
+
+    RW_WRLOCK(&tag_tree_mtx);
+    if (strcmp(name, "@tags") == 0) {
+        tag = tag_tree_metanode_create();
+        if (tag == NULL) {
+            err(1, "tag_tree_metanode_create");
+        }
+        ret = tag->tag_id;
     } else {
-        id = tag->tag_id + 1;
+        tag = tag_tree_node_create(name, elem_size, elem_count);
+        if (tag == NULL) {
+            err(1, "tag_tree_node_create");
+        }
+        MTX_UNLOCK(&tag->mtx);
+        ret = tag->tag_id;
     }
-
-    tag = malloc(sizeof(struct tag_tree_node));
-    if (tag == NULL) {
-        err(1, "malloc");
-    }
-    memset(tag, 0, sizeof(struct tag_tree_node));
-
-    if (pthread_mutex_init(&tag->mtx, NULL)) {
-        err(1, "pthread_mutex_init");
-    }
-    MTX_LOCK(&tag->mtx);
-
-    tag->name = strdup(name);
-    if (!tag->name) {
-        errx(1, "strdup");
-    }
-
-    tag->elem_count = elem_count;
-    tag->elem_size = elem_size;
-
-    tag->data = calloc(tag->elem_count, tag->elem_size);
-    if (tag->data == NULL) {
-        err(1, "calloc");
-    }
-
-    tag->tag_id = id;
-    RB_INSERT(tag_tree_t, &tag_tree, tag);
-    tree_size++;
-
-    /* Invalidate the metatag, if one exists. */
-    find.tag_id = METATAG_ID;
-    metatag = RB_FIND(tag_tree_t, &tag_tree, &find);
-    if (metatag != NULL) {
-        RB_REMOVE(tag_tree_t, &tag_tree, metatag);
-        tree_size--;
-        tag_tree_node_destroy(metatag);
-    }
-
-    pdebug(PLCTAG_DEBUG_DETAIL, "Created new tag %d (%s)", id, name);
-
-    return tag;
-}
-
-void
-tag_tree_node_destroy(struct tag_tree_node* tag)
-{
-    if (!tag) {
-        return;
-    }
-
-    pdebug(PLCTAG_DEBUG_DETAIL, "Destroying node %d", tag->tag_id);
-
-    MTX_LOCK(&tag->mtx);
-
-    pthread_mutex_t mtx = tag->mtx;
-    free(tag->data);
-    free(tag->name);
-    free(tag);
-
-    MTX_UNLOCK(&mtx);
-
-    pthread_mutex_destroy(&mtx);
+    RW_UNLOCK(&tag_tree_mtx);
+    return ret;
 }
 
 int
@@ -224,54 +321,6 @@ tag_tree_remove(int32_t id)
     return PLCTAG_STATUS_OK;
 }
 
-/* invoked the first time the user of the library tries to do anything
- * with the the PLC.
- * 
- * Assumes that tag_tree_mtx is NOT held.
- */
-static void
-tag_tree_init()
-{
-    static bool tag_tree_inited = false; /* Have we called tag_tree_init() yet? */
-
-    /* Check to see if we've inited.  If so, nothing to do. */
-    RW_RDLOCK(&tag_tree_mtx);
-
-    if (tag_tree_inited) {
-        RW_UNLOCK(&tag_tree_mtx);
-        return;
-    }
-
-    /* Upgrade to a writer lock and initialise. */
-    RW_UNLOCK(&tag_tree_mtx);
-    RW_WRLOCK(&tag_tree_mtx);
-
-    /* Did somebody beat us to initing? If so, lucky us. */
-    if (tag_tree_inited) {
-        RW_UNLOCK(&tag_tree_mtx);
-        return;
-    }
-    tag_tree_inited = true;
-
-    pdebug(PLCTAG_DEBUG_DETAIL, "Initing");
-
-    /* TODO: this should be done as part of a helper that
-     * consumes dummy tags from an input file or something.
-     */
-    for (int i = 0; i < NTAGS; ++i) {
-        char name[1024];
-        size_t elem_count = 1;
-        size_t elem_size = sizeof(uint32_t);
-
-        snprintf(name, sizeof(name), "DUMMY_AQUA_DATA_%d", i);
-
-        struct tag_tree_node* tag = tag_tree_node_create(name, elem_size, elem_count);
-        *(uint16_t*)(tag->data) = i;
-        MTX_UNLOCK(&tag->mtx);
-    }
-    RW_UNLOCK(&tag_tree_mtx);
-}
-
 /* Looks up a tag by ID; returns NULL if no such tag exists. 
  *
  * This function does NOT eagerly lock the returned tag; it
@@ -304,11 +353,4 @@ tag_tree_lookup(int32_t tag_id)
 
     RW_UNLOCK(&tag_tree_mtx);
     return ret;
-}
-
-/* Compares two tag structures by ID. */
-static int
-tagcmp(struct tag_tree_node* lhs, struct tag_tree_node* rhs)
-{
-    return (lhs->tag_id < rhs->tag_id ? -1 : (lhs->tag_id > rhs->tag_id));
 }

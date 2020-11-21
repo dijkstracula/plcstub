@@ -26,20 +26,11 @@ struct tag_tree_node {
     char* data;
 };
 
-struct tag_tree_node*
-tag_tree_metanode_create();
-
-struct tag_tree_node*
-tag_tree_node_create();
-
-void
-tag_tree_node_destroy(struct tag_tree_node*);
+int
+tag_tree_insert(const char* name, size_t elem_size, size_t elem_count);
 
 struct tag_tree_node*
 tag_tree_lookup(int32_t tag_id);
-
-int
-tag_tree_insert(struct tag_tree_node* node);
 
 int
 tag_tree_remove(int32_t tag_id);

@@ -260,24 +260,9 @@ plc_tag_create(const char* attrib, int timeout)
         goto done;
     }
 
-    /* XXX: RACE: We aren't holding the tag tree lock here
-     * TODO(ntaylor): fix this.
-     */
-    if (strcmp(name, "@tags") == 0) {
-        tag = tag_tree_metanode_create();
-        if (tag == NULL) {
-            err(1, "tag_tree_metanode_create");
-        }
-        ret = tag->tag_id;
-    } else {
-        tag = tag_tree_node_create(name, elem_size, elem_count);
-        if (tag == NULL) {
-            err(1, "tag_tree_node_create");
-        }
-        MTX_UNLOCK(&tag->mtx);
-        ret = tag->tag_id;
-    }
+    ret = tag_tree_insert(name, elem_size, elem_count);
 
+    /* TODO: we no longer allocate in this function so we can return early now. */
 done:
     return ret;
 }
