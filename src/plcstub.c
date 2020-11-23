@@ -5,6 +5,7 @@
  */
 
 #include <err.h>
+#include <inttypes.h>
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -23,19 +24,20 @@ typedef void(setter_fn)(char* buf, int offset, void* val);
 
 /* Accessor / mutator macros */
 
-/* 
+/*
  * TODO: To allow returning negative values for error codes from
  * plcstub_get_impl, we may have to look at widening the types underlying each
  * particular type.  Not sure how to do that and maintain API compatability with
  * libplctag, though.
  */
-#define GETTER(name, type)                                                          \
+#define GETTER(name, type, fprintf_type)                                            \
     static void                                                                     \
         plcstub_##name##_getter_cb(char* buf, int offset, void* val)                \
     {                                                                               \
-        pdebug(PLCTAG_DEBUG_SPEW, "reading at offset %d", offset);                  \
         type* p = (type*)(buf + offset);                                            \
         *(type*)(val) = *p;                                                         \
+        pdebug(PLCTAG_DEBUG_SPEW, "reading at offset %d (%" fprintf_type ")",       \
+            offset, *p);                                                            \
     }                                                                               \
     type                                                                            \
         plc_tag_get_##name(int32_t tag, int offset)                                 \
@@ -49,13 +51,14 @@ typedef void(setter_fn)(char* buf, int offset, void* val);
         return val;                                                                 \
     }
 
-#define SETTER(name, type)                                                      \
+#define SETTER(name, type, fprintf_type)                                        \
     static void                                                                 \
         plcstub_##name##_setter_cb(char* buf, int offset, void* val)            \
     {                                                                           \
-        pdebug(PLCTAG_DEBUG_SPEW, "writing at offset %d", offset);              \
         type* p = (type*)(buf + offset);                                        \
         *p = *(type*)(val);                                                     \
+        pdebug(PLCTAG_DEBUG_SPEW, "writing at offset %d (%" fprintf_type ")",   \
+            offset, *p);                                                        \
     }                                                                           \
     int                                                                         \
         plc_tag_set_##name(int32_t tag, int offset, type val)                   \
@@ -63,19 +66,19 @@ typedef void(setter_fn)(char* buf, int offset, void* val);
         return plcstub_set_impl(tag, offset, &val, plcstub_##name##_setter_cb); \
     }
 
-#define TYPEMAP         \
-    /* X(name, type) */ \
-    X(bit, int)         \
-    X(uint64, uint64_t) \
-    X(int64, int64_t)   \
-    X(uint32, uint32_t) \
-    X(int32, int32_t)   \
-    X(uint16, uint16_t) \
-    X(int16, int16_t)   \
-    X(uint8, uint8_t)   \
-    X(int8, int8_t)     \
-    X(float64, double)  \
-    X(float32, float)
+#define TYPEMAP                       \
+    /* X(name, type, fprintf_type) */ \
+    X(bit, int, PRId32)               \
+    X(uint64, uint64_t, PRIu64)       \
+    X(int64, int64_t, PRId64)         \
+    X(uint32, uint32_t, PRIu32)       \
+    X(int32, int32_t, PRId32)         \
+    X(uint16, uint16_t, PRIu16)       \
+    X(int16, int16_t, PRId16)         \
+    X(uint8, uint8_t, PRIu8)          \
+    X(int8, int8_t, PRId8)            \
+    X(float64, double, "%f")          \
+    X(float32, float, "%f")
 
 static int
 plcstub_get_impl(int32_t tag, int offset, void* buf, getter_fn fn)
@@ -203,7 +206,7 @@ plc_tag_create(const char* attrib, int timeout)
     char* name = NULL;
 
     /* TODO: It appears that we need not specify elem_size and elem_count.  What should
-     * the expected "default" value be? 
+     * the expected "default" value be?
      */
     size_t elem_size = 2;
     size_t elem_count = 1;
@@ -484,7 +487,7 @@ plc_tag_status(int32_t tag)
         return PLCTAG_ERR_NOT_FOUND;
     }
 
-    /* For the stub, let's always just treat the tag status as 
+    /* For the stub, let's always just treat the tag status as
      * okay.  If we stub out in-flight reads and writes later on,
      * this would change.
      */
@@ -532,9 +535,9 @@ plc_tag_write(int32_t tag_id, int timeout)
 
 /* macro expansions */
 
-#define X(name, type) SETTER(name, type);
+#define X(name, type, fprintf_type) SETTER(name, type, fprintf_type);
 TYPEMAP
 #undef X
-#define X(name, type) GETTER(name, type);
+#define X(name, type, fprintf_type) GETTER(name, type, fprintf_type);
 TYPEMAP
 #undef X
