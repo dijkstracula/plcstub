@@ -160,7 +160,7 @@ plcstub_set_impl(int32_t tag, int offset, void* value, setter_fn fn)
         return PLCTAG_ERR_BAD_PARAM;
     }
 
-    fn(t->data, offset, &value);
+    fn(t->data, offset, value);
 
     if (t->cb) {
         pdebug(PLCTAG_DEBUG_SPEW,
