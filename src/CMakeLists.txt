@@ -13,7 +13,11 @@ add_library(plcstub debug.c plcstub.c tagtree.c)
 target_include_directories(plcstub PUBLIC
                           "${PROJECT_BINARY_DIR}"
                           "${PROJECT_SOURCE_DIR}/../include"
+                          "${PROJECT_SOURCE_DIR}/.."
                           )
 
 
 install(TARGETS plcstub DESTINATION lib)
+install(FILES "${PROJECT_SOURCE_DIR}/../libplctag.h"
+  DESTINATION include
+  )
