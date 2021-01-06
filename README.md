@@ -12,12 +12,15 @@ section below) for non-trivial changes.  Otherwise, go hog wild.
 
 ## Building
 
-Running `make` will generate binary-compatable `libplctag.a` file in the root
-directory.
+To build the project in a directory called `build`, from the project root directory run  these commands:
+1. `mkdir -p build`
+2. `cd build`
+3. `cmake ..`
+4. `cmake --build .`
 
-## Testing
-
-There are some test programs that link against the stub `libplctag.a` in the 
-`tests/` directory.
-
-For now, just run the tests with `for prog in $(find test -type f -perm +u+x); do $prog; done` and we will make this better shortly.
+Additional actions commonly performed:
+* Install: `sudo cmake --install .`
+* Run built tests: `cd test; ctest` - it should print "100% tests passed"
+* Configure build with debug symbols: `cmake .. -DCMAKE_BUILD_TYPE=Debug`.
+* Configure library to print debug: `cmake -DBUILD_WITH_DEBUG=ON ..`
+* Build a static instead of shared library: `cmake -DBUILD_SHARED_LIBS=OFF ..`
