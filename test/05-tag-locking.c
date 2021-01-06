@@ -39,7 +39,7 @@ main(int argc, char** argv)
     //plc_tag_set_debug_level(PLCTAG_DEBUG_SPEW);
 
     for (i = 0; i < sizeof(threads) / sizeof(threads[0]); i++) {
-        if (pthread_create(&threads[i], NULL, thread_entry, (uintptr_t)i)) {
+        if (pthread_create(&threads[i], NULL, thread_entry, (void*)(uintptr_t)i)) {
             errx(1, "pthread_create");
         }
     }
