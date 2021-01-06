@@ -8,3 +8,6 @@ set(CMAKE_C_STANDARD_REQUIRED True)
 
 # add the library
 add_subdirectory(src)
+
+# add the tests
+add_subdirectory(test)
