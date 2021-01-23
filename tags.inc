@@ -1,0 +1,22 @@
+/* Tag file
+ *
+ * At some point, this should be auto-generated from the tags.L5X file elsewhere,
+ * or at least somewhat reflect reality.
+ *
+ * Format:
+ * DEFINE_SCALAR(name, type, val)
+ * DEFINE_ARRAY(name, type, len)
+ */
+ 
+ DEFINE_SCALAR("DUMMY_AQUA_DATA_0", TAG_INT, 0);
+ DEFINE_SCALAR("DUMMY_AQUA_DATA_1", TAG_INT, 1);
+ DEFINE_SCALAR("DUMMY_AQUA_DATA_2", TAG_INT, 2);
+ DEFINE_SCALAR("DUMMY_AQUA_DATA_3", TAG_INT, 3);
+ DEFINE_SCALAR("DUMMY_AQUA_DATA_4", TAG_INT, 4);
+ DEFINE_SCALAR("DUMMY_AQUA_DATA_5", TAG_INT, 5);
+ DEFINE_SCALAR("DUMMY_AQUA_DATA_6", TAG_INT, 6);
+ DEFINE_SCALAR("DUMMY_AQUA_DATA_7", TAG_INT, 7);
+ DEFINE_SCALAR("DUMMY_AQUA_DATA_8", TAG_INT, 8);
+ DEFINE_SCALAR("DUMMY_AQUA_DATA_9", TAG_INT, 9);
+
+/* DEFINE_ARRAY("DUMMY_AQUA_DEFINE_ARRAY_0", TAG_BOOL, 4); */

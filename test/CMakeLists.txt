@@ -10,6 +10,7 @@ foreach( testname
     03-tag_create
     04-metatag_lookup
     05-tag-locking
+    06-types
  )
     add_executable( ${testname} ${testname}.c )
     target_include_directories(${testname} PUBLIC

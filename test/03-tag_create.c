@@ -12,7 +12,7 @@ main(int argc, char** argv)
     int tid = 42;
     int ret;
 
-    plc_tag_set_debug_level(PLCTAG_DEBUG_SPEW);
+    plc_tag_set_debug_level(PLCTAG_DEBUG_DETAIL);
 
     /* Taken from src/examples/stress_test.c in libplctag. */
     const char* tag_str = "protocol=ab_eip&gateway=10.206.1.40&path=1,4&cpu=lgx&elem_size=4&elem_count=%d&name=TestBigArray[%d]&debug=4";
@@ -25,5 +25,6 @@ main(int argc, char** argv)
         printf("tag_tree_node creation successful with return value %d\n", ret);
     }
 
+    printf("Test passed!\n");
     return 0;
 }
