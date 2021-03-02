@@ -150,7 +150,7 @@ tag_tree_node_create(const char* name, type_t type)
     if (tag->data == NULL) {
         err(1, "malloc");
     }
-    bzero(tag->data, sz);
+    memset(tag->data, sz, 0x42);
 
     tag->tag_id = id;
     RB_INSERT(tag_tree_t, &tag_tree, tag);
