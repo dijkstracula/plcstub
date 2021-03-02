@@ -17,6 +17,7 @@
 #include "lock_utils.h"
 #include "plcstub.h"
 #include "tagtree.h"
+#include "types.h"
 
 /* TODO: there should be a way of unifying these (as well as the _impl functions). */
 typedef void(getter_fn)(char* buf, int offset, void* val);
@@ -84,6 +85,7 @@ static int
 plcstub_get_impl(int32_t tag, int offset, void* buf, getter_fn fn)
 {
     struct tag_tree_node* t;
+    size_t sz;
 
     t = tag_tree_lookup(tag);
     if (!t) {
@@ -102,16 +104,27 @@ plcstub_get_impl(int32_t tag, int offset, void* buf, getter_fn fn)
         t->cb(tag, PLCTAG_EVENT_READ_STARTED, PLCTAG_STATUS_OK);
     }
 
-    if (offset >= t->elem_count * t->elem_size) {
-        pdebug(PLCTAG_DEBUG_WARN,
-            "Offset %d out of bounds of [0..%d)", offset, t->elem_count * t->elem_size);
-        if (t->cb) {
-            pdebug(PLCTAG_DEBUG_SPEW,
-                "Calling cb for %d with PLCTAG_EVENT_ABORTED", tag);
-            t->cb(tag, PLCTAG_EVENT_ABORTED, PLCTAG_ERR_BAD_PARAM);
+    if (type_to_enum(t->type) != TAG_ARRAY) {
+        if (offset > 0) {
+            pdebug(PLCTAG_DEBUG_WARN,
+                "Offset %d specified for non-array type %s", offset, type_str(t->type));
+            if (t->cb) {
+                pdebug(PLCTAG_DEBUG_SPEW,
+                    "Calling cb for %d with PLCTAG_EVENT_ABORTED", tag);
+                t->cb(tag, PLCTAG_EVENT_ABORTED, PLCTAG_ERR_BAD_PARAM);
+            }
+            MTX_UNLOCK(&t->mtx);
+            return PLCTAG_ERR_BAD_PARAM;
         }
-        MTX_UNLOCK(&t->mtx);
-        return PLCTAG_ERR_BAD_PARAM;
+    } else {
+        struct tag_array* a = (struct tag_array*)(t->type);
+        if (offset >= a->len) {
+            pdebug(PLCTAG_DEBUG_WARN,
+                "Offset %d not in [0, %d)", offset, a->len);
+            MTX_UNLOCK(&t->mtx);
+            return PLCTAG_ERR_BAD_PARAM;
+        }
+        offset = offset * type_size_bytes(a->member_type);
     }
 
     fn(t->data, offset, buf);
@@ -149,15 +162,27 @@ plcstub_set_impl(int32_t tag, int offset, void* value, setter_fn fn)
         t->cb(tag, PLCTAG_EVENT_WRITE_STARTED, PLCTAG_STATUS_OK);
     }
 
-    if (offset >= t->elem_count * t->elem_size) {
-        pdebug(PLCTAG_DEBUG_WARN,
-            "Offset %d out of bounds of [0..%d)", offset, t->elem_count * t->elem_size);
-        if (t->cb) {
-            pdebug(PLCTAG_DEBUG_SPEW,
-                "Calling cb for %d with PLCTAG_EVENT_ABORTED", tag);
-            t->cb(tag, PLCTAG_EVENT_ABORTED, PLCTAG_ERR_BAD_PARAM);
+    if (type_to_enum(t->type) != TAG_ARRAY) {
+        if (offset > 0) {
+            pdebug(PLCTAG_DEBUG_WARN,
+                "Offset %d specified for non-array type %s", offset, type_str(t->type));
+            if (t->cb) {
+                pdebug(PLCTAG_DEBUG_SPEW,
+                    "Calling cb for %d with PLCTAG_EVENT_ABORTED", tag);
+                t->cb(tag, PLCTAG_EVENT_ABORTED, PLCTAG_ERR_BAD_PARAM);
+            }
+            MTX_UNLOCK(&t->mtx);
+            return PLCTAG_ERR_BAD_PARAM;
         }
-        return PLCTAG_ERR_BAD_PARAM;
+    } else {
+        struct tag_array* a = (struct tag_array*)(t->type);
+        if (offset >= a->len) {
+            pdebug(PLCTAG_DEBUG_WARN,
+                "Offset %d not in [0, %d)", offset, a->len);
+            MTX_UNLOCK(&t->mtx);
+            return PLCTAG_ERR_BAD_PARAM;
+        }
+        offset = offset * type_size_bytes(a->member_type);
     }
 
     fn(t->data, offset, value);
@@ -200,18 +225,12 @@ plc_tag_create(const char* attrib, int timeout)
 
     /* There are three attributes that we are interested in at the moment:
      * 1) name: the name of the tag
-     * 2) elem_size: the width of each element in the tag
-     * 3) elem_count: how many elements. (TODO: how does this work with multi-dim arrays?)
+     * 
+     * Additionally, two more attributes may be set, that we ignore:
+     * 1) elem_size: the width of each element in the tag
+     * 2) elem_count: how many elements. (TODO: how does this work with multi-dim arrays?)
      */
     char* name = NULL;
-
-    /* TODO: It appears that we need not specify elem_size and elem_count.  What should
-     * the expected "default" value be?
-     */
-    size_t elem_size = 2;
-    size_t elem_count = 1;
-    bool elem_size_set = false;
-    bool elem_count_set = false;
 
     char* str = strdup(attrib);
 
@@ -243,17 +262,9 @@ plc_tag_create(const char* attrib, int timeout)
             }
             name = val;
         } else if (strcmp("elem_size", key) == 0) {
-            if (elem_size_set) {
-                pdebug(PLCTAG_DEBUG_WARN, "Overwriting attribute %s", "elem_size");
-            }
-            elem_size = atoi(val);
-            elem_size_set = true;
+            pdebug(PLCTAG_DEBUG_WARN, "plcstub dicards attribute %s", "elem_size");
         } else if (strcmp("elem_count", key) == 0) {
-            if (elem_count_set) {
-                pdebug(PLCTAG_DEBUG_WARN, "Overwriting attribute %s", "elem_count");
-            }
-            elem_count = atoi(val);
-            elem_count_set = true;
+            pdebug(PLCTAG_DEBUG_WARN, "plcstub dicards attribute %s", "elem_count");
         }
     }
 
@@ -263,10 +274,13 @@ plc_tag_create(const char* attrib, int timeout)
         goto done;
     }
 
-    ret = tag_tree_insert(name, elem_size, elem_count);
+    /* XXX: This needs to go away immediately, as it hinges on Nathan's misunderstanding
+     * of creating a tag ID. Another patch will be put out that returns a new
+     * handle to an existing tag rather than creating a new one. */
+    ret = tag_tree_insert(name, type_new_simple(TAG_LINT));
 
-    /* TODO: we no longer allocate in this function so we can return early now. */
 done:
+    free(str);
     return ret;
 }
 
@@ -380,7 +394,7 @@ plc_tag_get_size(int32_t id)
         return PLCTAG_ERR_NOT_FOUND;
     }
     MTX_LOCK(&t->mtx);
-    size = t->elem_count * t->elem_size;
+    size = t;
     MTX_UNLOCK(&t->mtx);
 
     return size;

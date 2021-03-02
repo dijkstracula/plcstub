@@ -2,6 +2,7 @@
 #define _TAGTREE_H_
 
 #include "plcstub.h"
+#include "types.h"
 
 #include <pthread.h>
 #include <string.h>
@@ -17,8 +18,7 @@ struct tag_tree_node {
     tag_callback_func cb;
     pthread_mutex_t mtx;
 
-    size_t elem_size;
-    size_t elem_count;
+    type_t type;
 
     /* of length (elem_size * elem_count) 
      * TODO: can this buffer ever be resized?  If not, let's make it a char[0] and save
@@ -27,7 +27,7 @@ struct tag_tree_node {
 };
 
 int
-tag_tree_insert(const char* name, size_t elem_size, size_t elem_count);
+tag_tree_insert(const char* name, type_t type);
 
 struct tag_tree_node*
 tag_tree_lookup(int32_t tag_id);

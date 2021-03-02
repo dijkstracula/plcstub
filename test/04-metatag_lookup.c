@@ -16,7 +16,7 @@ main(int argc, char** argv)
     int16_t s2;
     int32_t s4;
 
-    plc_tag_set_debug_level(PLCTAG_DEBUG_DETAIL);
+    plc_tag_set_debug_level(PLCTAG_DEBUG_SPEW);
 
     ret = plc_tag_read(METATAG_ID, 1000);
     if (ret != PLCTAG_STATUS_OK) {
@@ -33,14 +33,14 @@ main(int argc, char** argv)
     /* skip over type for now */
     offset += sizeof(s2);
 
-    /* size */
-    if ((s2 = plc_tag_get_int16(METATAG_ID, offset)) != 4) {
-        errx(1, "Read at offset %d: expected %d, got %d", offset, 4, s2);
+    /* size: TAG_INT == uint16_t */
+    if ((s2 = plc_tag_get_int16(METATAG_ID, offset)) != 2) {
+        errx(1, "Read at offset %d: expected %d, got %d", offset, 2, s2);
     }
     offset += sizeof(s2);
 
-    /* dims */
-    if ((s4 = plc_tag_get_int32(METATAG_ID, offset)) != 1) {
+    /* dims: for a scalar type, this should be 0 */
+    if ((s4 = plc_tag_get_int32(METATAG_ID, offset)) != 0) {
         errx(1, "Read at offset %d: expected %d, got %d", offset, 1, s4);
     }
     offset += sizeof(s4) * 3;

@@ -42,7 +42,7 @@ RB_GENERATE(tag_tree_t, tag_tree_node, rb_entry, tagcmp);
 static void
 tag_tree_init();
 static struct tag_tree_node*
-tag_tree_node_create(const char*, size_t, size_t);
+tag_tree_node_create(const char*, type_t);
 static void
 tag_tree_node_destroy();
 
@@ -84,26 +84,18 @@ tag_tree_init()
 
     pdebug(PLCTAG_DEBUG_DETAIL, "Initing");
 
-    /* TODO: this should be done as part of a helper that
-     * consumes dummy tags from an input file or something.
-     */
-    for (int i = 0; i < NTAGS; ++i) {
-        char name[1024];
-        struct tag_tree_node* tag;
+/* TODO: these should likely be functions. */
+#define DEFINE_SCALAR(name, type, val)                           \
+    do {                                                         \
+        struct tag_tree_node* tag;                               \
+        tag = tag_tree_node_create(name, type_new_simple(type)); \
+        *tag->data = val;                                        \
+        MTX_UNLOCK(&tag->mtx);                                   \
+    } while (0);
+#define DEFINE_ARRAY(name, element_type, size, val) err(1, "DEFINE_ARRAY: not implemented yet");
+#include "tags.inc"
+#undef DEFINE_SCALAR
 
-        size_t elem_count = 1;
-        size_t elem_size = sizeof(uint32_t);
-
-        snprintf(name, sizeof(name), "DUMMY_AQUA_DATA_%d", i);
-
-        /* We are already holding the tag tree lock so we can't
-         * call tag_tree_insert and tag_tree_lookup like a normal
-         * caller would. */
-        tag = tag_tree_node_create(name, elem_size, elem_count);
-
-        *(uint16_t*)(tag->data) = i;
-        MTX_UNLOCK(&tag->mtx);
-    }
     RW_UNLOCK(&tag_tree_mtx);
 }
 
@@ -113,10 +105,18 @@ tag_tree_init()
  * mutex held.  The caller will populate its fields and unlock it
  * when it is ready to be visible. */
 static struct tag_tree_node*
-tag_tree_node_create(const char* name, size_t elem_size, size_t elem_count)
+tag_tree_node_create(const char* name, type_t type)
 {
     struct tag_tree_node *tag, *metatag, find;
+    size_t sz;
     int id;
+
+    sz = type_size_bytes(type);
+    /* Reserve at least a word of data.  This simplifies implementing the DEFINE_SCALAR macro:
+     * where we don't have to worry about integer promotion. */
+    if (sz < sizeof(uintptr_t)) {
+        sz = sizeof(uintptr_t);
+    }
 
     /* TODO: special case for the empty tree?. */
     tag = RB_MAX(tag_tree_t, &tag_tree);
@@ -141,13 +141,16 @@ tag_tree_node_create(const char* name, size_t elem_size, size_t elem_count)
         errx(1, "strdup");
     }
 
-    tag->elem_count = elem_count;
-    tag->elem_size = elem_size;
-
-    tag->data = calloc(tag->elem_count, tag->elem_size);
-    if (tag->data == NULL) {
-        err(1, "calloc");
+    tag->type = type_dup(type);
+    if (!tag->type) {
+        err(1, "type_dup");
     }
+
+    tag->data = malloc(sz);
+    if (tag->data == NULL) {
+        err(1, "malloc");
+    }
+    bzero(tag->data, sz);
 
     tag->tag_id = id;
     RB_INSERT(tag_tree_t, &tag_tree, tag);
@@ -227,20 +230,36 @@ tag_tree_metanode_create()
 
     tag->name = strdup("@tags");
     tag->tag_id = METATAG_ID;
-    tag->elem_count = 1;
-    tag->elem_size = total_data_size;
-    tag->data = p = malloc(tag->elem_size);
     tag->cb = NULL;
 
-    pdebug(PLCTAG_DEBUG_DETAIL, "Creating @tags metatag (node ID %d) (%d bytes)", METATAG_ID, tag->elem_size);
+    /* XXX: because the entries are variable in length, this can't really be represented
+     * in plcstub's type system.  So, make it an array of bytes.
+     */
+    tag->type = type_new_array(total_data_size, type_new_simple(TAG_SINT));
 
+    tag->data = p = malloc(total_data_size);
+    if (!p) {
+        err(1, "malloc");
+    }
+
+    pdebug(PLCTAG_DEBUG_DETAIL, "Creating @tags metatag (node ID %d) (%d bytes)", METATAG_ID, type_size_bytes(tag->type));
+
+    /* XXX: Currently these results should not be relied upon too much :-( */
     RB_FOREACH(tag, tag_tree_t, &tag_tree)
     {
         struct metatag_t* mt = (struct metatag_t*)(p);
         mt->id = tag->tag_id;
+        /* TODO: need a way of converting a type_t to this representation */
         mt->type = (1 << 13); /* TODO: type needs more than the dimensions mask */
-        mt->elem_size = tag->elem_size;
-        mt->array_dims[0] = tag->elem_count;
+
+        mt->elem_size = type_size_bytes(tag->type); /* TODO: this is wrong for arrays */
+
+        if (type_is_scalar(tag->type) || type_to_enum(tag->type) == TAG_STRUCT) {
+            mt->array_dims[0] = 0;
+        } else {
+            struct tag_array* a = (struct tag_array*)(tag->type);
+            mt->array_dims[0] = a->len;
+        }
         mt->array_dims[1] = mt->array_dims[2] = 0;
         mt->length = strlen(tag->name);
         memcpy(mt->data, tag->name, mt->length);
@@ -261,7 +280,7 @@ tag_tree_metanode_create()
  * is revalidated instead.
  */
 int
-tag_tree_insert(const char* name, size_t elem_size, size_t elem_count)
+tag_tree_insert(const char* name, type_t type)
 {
     int ret;
     struct tag_tree_node* tag;
@@ -276,7 +295,7 @@ tag_tree_insert(const char* name, size_t elem_size, size_t elem_count)
         }
         ret = tag->tag_id;
     } else {
-        tag = tag_tree_node_create(name, elem_size, elem_count);
+        tag = tag_tree_node_create(name, type);
         if (tag == NULL) {
             err(1, "tag_tree_node_create");
         }

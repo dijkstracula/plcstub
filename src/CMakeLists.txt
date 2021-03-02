@@ -1,6 +1,6 @@
 option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
 
-add_library(plctagstub debug.c plcstub.c tagtree.c)
+add_library(plctagstub debug.c plcstub.c tagtree.c types.c)
 
 target_include_directories(plctagstub PUBLIC
                           "${CMAKE_CURRENT_SOURCE_DIR}/../include"
